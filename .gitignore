@@ -1,0 +1,37 @@
+# agent-only scratch
+agent-context/
+hack/
+marketing/
+submission/
+.playwright-mcp/
+
+# secrets & local state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keystore/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env.sentry-build-plugin
+
+# build artifacts
+apps/web/dist/
+apps/worker/.pytest_cache/
+apps/worker/logs/
+apps/worker/eval_report.json
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
+packages/contracts/standard-input.json
+
+# local DB cache (Neon in production)
+**/*.db
+**/*.db-journal
+
+# binaries
+bin/0g-storage-client
