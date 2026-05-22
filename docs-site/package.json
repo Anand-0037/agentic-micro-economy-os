@@ -1,0 +1,12 @@
+{
+  "name": "ameo-docs-site",
+  "private": true,
+  "scripts": {
+    "dev": "mint dev",
+    "validate": "mint validate",
+    "broken-check": "mintlify --version"
+  },
+  "devDependencies": {
+    "mint": "^4.2.566"
+  }
+}

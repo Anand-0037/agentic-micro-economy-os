@@ -1,0 +1,54 @@
+---
+title: "Agent identity"
+description: "[ERC-8004](/glossary#erc-8004)-inspired on-chain identity and DecisionLogged events."
+---
+
+AMEO binds every material decision to an **agent identity NFT** deployed as `MantleAgentIdentity` — an ERC-8004-*inspired* contract (see contract header for compliance deltas vs the reference implementation).
+
+## What's in the NFT
+
+Each agent is an ERC-721 token minted to an operator address. The contract stores the **latest** decision snapshot per token; full history lives in **`DecisionLogged` events**.
+
+| Field | Meaning |
+| --- | --- |
+| `agentId` | ERC-721 token id |
+| `rationaleHash` | Keccak commitment to the planner rationale |
+| `pnl1e18` | Signed PnL snapshot (fixed-point) |
+| `actionType` | e.g. `swap`, `no_op`, `rebalance` |
+| `metadataUri` | Optional URI for extended metadata |
+| `dataHash` | Commitment to off-chain blob (often 0G root) |
+| `operator` | Tx sender — must own the agent NFT |
+
+## Event signature
+
+From `packages/contracts/src/MantleAgentIdentity.sol`:
+
+```solidity
+event DecisionLogged(
+    uint256 indexed agentId,
+    bytes32 rationaleHash,
+    int256 pnl1e18,
+    string actionType,
+    string metadataUri,
+    string dataHash,
+    address operator
+);
+```
+
+## Public functions
+
+| Function | Access | Purpose |
+| --- | --- | --- |
+| `mintAgent(address operator)` | `onlyOwner` | Mint new agent NFT |
+| `logDecision(...)` | agent owner | Emit `DecisionLogged`, update snapshot mappings |
+
+## How an auditor reads it
+
+1. Find the agent contract on Mantlescan (`AGENT_IDENTITY_ADDRESS`).
+2. Filter `DecisionLogged` for your `agentId`.
+3. Match `rationaleHash` / `dataHash` to replay JSON and 0G indexer URLs.
+4. Cross-check the settlement tx hash from the same cycle in the Narrative Console replay.
+
+Deploy scripts: `packages/contracts/script/DeployAgentIdentity.s.sol`.
+
+See also [Proof trail](/concepts/proof-trail) and [Contracts API](/api/contracts).

@@ -1,0 +1,46 @@
+---
+title: "Security"
+description: "Threat model, key custody, and failure modes."
+---
+
+## Threat model
+
+| Threat | Mitigation |
+| --- | --- |
+| Unauthorized live execution | `LIVE_ENABLED`, `WORKER_MODE`, operator-only endpoints |
+| Model bypassing risk limits | Deterministic [policy predicates](/glossary#policy-predicate) outside LLM |
+| Key exfiltration via prompts | Private keys never sent to LLM providers |
+| RPC manipulation / outage | Observation quality gate; honest error states in UI |
+| Runaway trading volume | `MAX_DAILY_VOLUME_USD`, per-trade caps |
+
+## Key custody
+
+**Development / testnet:** AMEO uses a hot EOA (`AGENT_PRIVATE_KEY`) for signing. This is acceptable only for Sepolia demos with minimal funds.
+
+**Production recommendation:** Replace hot EOAs with KMS, MPC, or a hardware-backed signing service. Never commit keys; use host secret managers.
+
+## Policy defaults
+
+- Drawdown floor, asset whitelist, max trade USD, slippage bps — see [Policy specification](/policy-spec).
+- Failed predicates block execution and log `violations[]`.
+
+## RPC failure
+
+If Mantle RPC is unavailable:
+
+- Observation quality drops; non-`no_op` plans may fail `degraded_observation_quality`.
+- Worker returns 503-class errors; UI shows honest empty/error states.
+
+## LLM provider outage
+
+Fallback order: configured provider chain → `local_rules` deterministic planner.
+
+When all remote providers fail, AMEO can still refuse unsafe actions — it does not silently disable guardrails.
+
+## Contract verification
+
+Run Slither / Foundry tests before mainnet deployment. Verify source on Mantlescan for public auditability.
+
+## Responsible disclosure
+
+Report security issues to **security@agiwithai.com** (replace with your operational inbox before production launch). Do not open public issues for key-handling vulnerabilities.

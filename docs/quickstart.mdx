@@ -1,0 +1,94 @@
+---
+title: "Quickstart"
+description: "Clone AMEO, configure env, run worker + web, and verify one cognition cycle."
+---
+
+Get from zero to a verified cognition cycle in under 30 minutes.
+
+## Prerequisites
+
+- **Node.js 20+** and npm
+- **Python 3.11+** and [uv](https://github.com/astral-sh/uv)
+- **Foundry** (for contract builds): `curl -L https://foundry.paradigm.xyz | bash && foundryup`
+- Mantle Sepolia RPC access (public endpoint OK for dev)
+
+## 1. Clone and enter the repo
+
+```bash
+git clone https://github.com/AnandVashisht15/agentic-micro-economy-os.git
+cd agentic-micro-economy-os
+```
+
+## 2. Configure environment
+
+```bash
+cp .env.example .env
+cp apps/web/.env.example apps/web/.env
+```
+
+Minimum worker variables (`.env`):
+
+| Variable | Purpose |
+| --- | --- |
+| `MANTLE_RPC_URL` | Mantle Sepolia RPC, e.g. `https://rpc.sepolia.mantle.xyz` |
+| `MANTLE_CHAIN_ID` | `5003` for Sepolia |
+| `TREASURY_EOA` | Hot wallet address that holds test funds |
+| `AGENT_PRIVATE_KEY` | Signing key for execution (dev only — never commit) |
+| `AGENT_IDENTITY_ADDRESS` | Deployed `MantleAgentIdentity` contract |
+| `AGENT_TOKEN_ID` | Minted agent NFT id |
+| `WORKER_MODE` | `dry_run` for first boot; `live_limited` when funded |
+| `LLM_PROVIDER` | `z_ai`, `groq`, `gemini`, or `local_rules` |
+
+Minimum web variables (`apps/web/.env`):
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_WORKER_URL` | `http://localhost:8000` |
+| `VITE_MANTLE_RPC_URL` | Same Sepolia RPC |
+| `VITE_MANTLE_CHAIN_ID` | `5003` |
+| `VITE_AGENT_IDENTITY_ADDRESS` | Same as worker |
+| `VITE_MANTLE_EXPLORER_BASE` | `https://sepolia.mantlescan.xyz` |
+
+See [Run locally](/guides/run-locally) for the full variable reference.
+
+## 3. Install dependencies
+
+```bash
+cd apps/web && npm install && cd ../..
+cd apps/worker && uv sync && cd ../..
+```
+
+## 4. Start the worker
+
+```bash
+cd apps/worker
+uv run uvicorn ameo_worker.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Verify: `curl -s http://localhost:8000/health` → `{"status":"ok"}`
+
+## 5. Start the web console
+
+```bash
+cd apps/web
+npm run dev
+```
+
+Open http://localhost:5173
+
+## 6. Run one cycle and replay it
+
+1. Open **Console** → click **Run cycle** (or `POST http://localhost:8000/run-cycle`).
+2. Note the `cycle_id` in the worker logs (`apps/worker/logs/events/events_*.jsonl`).
+3. Open **Replay** → `/app/replay?cycle=<cycle_id>` and expand all nine nodes.
+4. If execution succeeded, cross-check the tx hash on [Mantlescan Sepolia](https://sepolia.mantlescan.xyz).
+
+## Troubleshooting
+
+**Worker health fails** — Check `MANTLE_RPC_URL` reaches Sepolia; try `https://rpc.sepolia.mantle.xyz`.
+
+**Run cycle returns policy_rejected** — Start with `WORKER_MODE=dry_run` and `LLM_PROVIDER=local_rules`; inspect violations in replay's Policy validation node.
+
+**Web console shows idle telemetry** — Confirm `VITE_WORKER_URL` matches the running worker and CORS is open (default in dev).
+
+**No [DecisionLogged](/glossary#decisionlogged-event) event** — Ensure `AGENT_IDENTITY_ADDRESS`, `AGENT_TOKEN_ID`, and funded `TREASURY_EOA` are set; see [Agent identity](/concepts/agent-identity).

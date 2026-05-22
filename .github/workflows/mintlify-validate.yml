@@ -1,0 +1,37 @@
+name: Mintlify validate
+
+on:
+  pull_request:
+    paths: ["docs/**", "docs-site/**", "submission/**"]
+  push:
+    branches: [main]
+    paths: ["docs/**", "docs-site/**", "submission/**"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Block tracked internal scaffolding
+        run: |
+          if git ls-files agent-context/ marketing/ hack/ | grep -q .; then
+            echo "::error::Internal files are tracked. They must be gitignored."
+            exit 1
+          fi
+          echo "OK: no internal scaffolding tracked"
+
+      - name: Block hackathon vocabulary in product docs
+        run: |
+          if grep -rilE 'hackathon|dorahacks|demo-script|judge-flow|no-fake-infra' docs/ 2>/dev/null; then
+            echo "::error::Hackathon/agent-context terminology leaked into public docs."
+            exit 1
+          fi
+          echo "OK: product docs vocabulary clean"
+
+      - name: Mintlify broken-links
+        run: npx -y mintlify@latest broken-links
+        working-directory: docs

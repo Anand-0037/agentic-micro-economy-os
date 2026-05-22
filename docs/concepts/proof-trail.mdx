@@ -1,0 +1,37 @@
+---
+title: "Proof trail"
+description: "Dual-layer proof — [0G Storage](/glossary#0g-storage) for reasoning blobs, Mantle for commitments."
+---
+
+AMEO splits proof across two layers optimized for **cost**, **availability**, and **finality**.
+
+## Layer 1 — 0G Storage (reasoning blob)
+
+The full planner output — rationale text, structured plan JSON, model metadata — can be uploaded to **0G Storage**. The worker receives a **root hash** verifiable via the 0G indexer.
+
+- **Pros:** Large payloads, cheap retention, public read via indexer URL.
+- **Cons:** Off-chain; requires 0G configuration (`ZERO_G_RPC_URL`, `ZERO_G_PRIVATE_KEY`, CLI path).
+
+When not configured, replay shows an honest empty state — never a fabricated hash.
+
+## Layer 2 — Mantle (commitment + decision log)
+
+On-chain, `MantleAgentIdentity.logDecision` stores:
+
+- `rationaleHash` — commitment to the rationale
+- `dataHash` — often the 0G root or auxiliary blob hash
+- `actionType`, `pnl1e18`, `metadataUri`
+
+The settlement **transaction hash** proves execution; `DecisionLogged` proves *authorization* tied to agent identity.
+
+## Why the split matters
+
+| Concern | Best layer |
+| --- | --- |
+| "Show me the full reasoning" | 0G indexer |
+| "Prove this agent authorized action X at block Y" | Mantle events + tx |
+| "Verify without our servers" | Mantlescan + 0G indexer + replay API |
+
+An auditor can validate commitments on-chain first, then fetch the blob off-chain if needed — standard commit–reveal for autonomous agents.
+
+Configure 0G in `.env` — see [Quickstart](/quickstart). Contract details: [Agent identity](/concepts/agent-identity).

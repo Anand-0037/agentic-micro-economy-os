@@ -1,0 +1,89 @@
+---
+title: "Architecture"
+description: "System context, components, data model, and deployment topology for AMEO."
+---
+
+Every component described here is implemented in this repository — not mocked for demos.
+
+## System context
+
+```mermaid
+flowchart TB
+  subgraph operator
+    Op[Operator]
+  end
+  subgraph frontend
+    UI[Web Console\nReact + wagmi]
+  end
+  subgraph worker
+    LG[LangGraph Agent Loop]
+    POL[Policy Engine]
+    DEX[Mantle DEX Adapter]
+  end
+  subgraph chain
+    MNT[Mantle RPC]
+    ID[MantleAgentIdentity]
+    Router[Merchant Moe / FusionX]
+  end
+  subgraph data
+    DB[(SQLite Memory)]
+    JSONL[(JSONL Event Log)]
+  end
+  Op --> UI
+  UI --> LG
+  LG --> POL
+  LG --> MNT
+  POL --> DEX
+  DEX --> Router
+  DEX --> MNT
+  LG --> ID
+  ID --> MNT
+  LG --> DB
+  LG --> JSONL
+  DB --> UI
+  JSONL --> UI
+```
+
+## Components
+
+| Component | Responsibility |
+| --- | --- |
+| `apps/worker/` | FastAPI + LangGraph: observe, plan, guard, act, log |
+| `apps/worker/ameo_worker/adapters/mantle_dex.py` | DEX quotes, calldata, broadcast on Mantle Sepolia |
+| `packages/contracts/` | `MantleAgentIdentity.sol`, Foundry deploy scripts |
+| `apps/web/` | Narrative Console — dashboard, replay, decisions, policy view |
+| `packages/prompts/` | Versioned planner prompt registry |
+| SQLite + JSONL | Persistent memory and append-only cycle events |
+
+## Cognition loop
+
+The LangGraph state machine in `apps/worker/ameo_worker/graph.py` runs:
+
+**observe → plan → guardrail → act → log**
+
+Each transition emits structured events to `logs/events/events_*.jsonl`. The replay API (`GET /api/cycles/{id}`) reconstructs the nine-node verification rail in the web UI.
+
+## Data model (minimal)
+
+| Store | Key entities |
+| --- | --- |
+| SQLite | runs, plans, executions, performance history |
+| JSONL | `cycle_started`, `observation_completed`, `plan_generated`, `guardrail_evaluated`, `action_executed`, `cycle_completed` |
+| On-chain | `[DecisionLogged](/glossary#decisionlogged-event)(agentId, rationaleHash, pnl1e18, actionType, metadataUri, dataHash, operator)` |
+
+## Security defaults
+
+- `LIVE_ENABLED=false` and `WORKER_MODE=dry_run` by default
+- Max daily notional and per-trade caps before execution
+- Private keys never passed to LLM prompts
+- Slither recommended on contracts before mainnet
+
+## Deployment
+
+| Service | Port | Notes |
+| --- | --- | --- |
+| Worker API | `:8000` | Docker Compose or `uvicorn` |
+| Web | `:5173` | Vite dev; static build for production |
+| Contracts | — | Mantle Sepolia via Foundry scripts |
+
+See [Deploy guide](/guides/deploy) for production hosting.

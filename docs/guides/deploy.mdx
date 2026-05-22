@@ -1,0 +1,69 @@
+---
+title: "Deploy"
+description: "Host the web console and worker in production."
+---
+
+## Recommended topology
+
+| Service | Suggested host | Port |
+| --- | --- | --- |
+| `apps/web` | Vercel, Cloudflare Pages, or static CDN | 443 |
+| `apps/worker` | Railway, Render, Fly.io | 8000 |
+| Docs | Mintlify (`docs.ameo.agiwithai.com`) | — |
+
+## Web build
+
+Build-time env (injected at CI or Docker build args):
+
+```
+VITE_WORKER_URL=https://api.ameo.agiwithai.com
+VITE_MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
+VITE_MANTLE_CHAIN_ID=5003
+VITE_AGENT_IDENTITY_ADDRESS=0x...
+VITE_MANTLE_EXPLORER_BASE=https://sepolia.mantlescan.xyz
+VITE_DOCS_URL=https://docs.ameo.agiwithai.com
+```
+
+```bash
+cd apps/web
+npm run build
+# dist/ → static host
+```
+
+## Worker deploy
+
+Required secrets on the host:
+
+- `MANTLE_RPC_URL`, `AGENT_PRIVATE_KEY`, `AGENT_IDENTITY_ADDRESS`
+- LLM keys (`Z_AI_API_KEY`, etc.) or `LLM_PROVIDER=local_rules`
+- Optional 0G: `ZERO_G_RPC_URL`, `ZERO_G_PRIVATE_KEY`, `ZERO_G_CLI_PATH`
+
+Start command:
+
+```bash
+cd apps/worker && uv run uvicorn ameo_worker.main:app --host 0.0.0.0 --port 8000
+```
+
+Enable CORS for your web origin or terminate both behind the same domain reverse proxy.
+
+## DNS / CNAME
+
+| Host | Target |
+| --- | --- |
+| `ameo.agiwithai.com` | Web static host |
+| `api.ameo.agiwithai.com` | Worker (optional subdomain) |
+| `docs.ameo.agiwithai.com` | Mintlify |
+
+## Health checks
+
+- Worker: `GET /health`
+- Web: static asset 200
+- Contract: Mantlescan verified source
+
+## Pre-production checklist
+
+- [ ] `LIVE_ENABLED` intentional for environment
+- [ ] Rate limits on `/run-cycle` and runner endpoints
+- [ ] Sentry DSN configured (`SENTRY_DSN`, `VITE_SENTRY_DSN`)
+- [ ] Secrets not in git — use host secret manager
+- [ ] See [Security](/security) for key custody guidance

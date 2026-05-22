@@ -1,0 +1,10 @@
+{
+  "5003": {
+    "MNT": {
+      "symbol": "MNT",
+      "name": "Mantle",
+      "decimals": 18,
+      "native": true
+    }
+  }
+}

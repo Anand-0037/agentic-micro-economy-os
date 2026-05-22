@@ -1,0 +1,49 @@
+/home/anand/turing-test/agentic-micro-economy-os/apps/worker/.venv/lib/python3.14/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+INFO:     Started server process [16791]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60862 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60870 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60886 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60894 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60898 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60852 - "POST /run-cycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43192 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43200 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43210 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43222 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43236 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43178 - "POST /run-cycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37814 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37824 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37830 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37838 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37842 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54946 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54952 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54968 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54978 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54980 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46968 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46984 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46992 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47002 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47008 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47020 - "POST /run-cycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49560 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49572 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49588 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49600 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49602 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49548 - "POST /run-cycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39178 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39182 - "GET /api/runner HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39194 - "GET /api/history HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39210 - "GET /api/performance HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39218 - "GET /api/trophy HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [16791]

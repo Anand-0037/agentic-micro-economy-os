@@ -1,0 +1,45 @@
+---
+title: "AMEO — Verifiable cognition for autonomous finance"
+description: "Trust infrastructure for AI economic agents — observe, reason, enforce policy, execute, and prove every action."
+---
+
+Autonomous agents already move real capital — rebalancing treasuries, routing grants, executing DEX trades. What they rarely provide is an **independent proof trail**: a way for operators, auditors, or the public to verify *why* a specific action happened without trusting a dashboard screenshot or a model's post-hoc explanation.
+
+AMEO closes that gap. It is a full-stack runtime for **verifiable cognition**: an agent that observes on-chain and market state, compiles a structured plan, passes deterministic policy gates, executes on Mantle, and anchors both an on-chain decision fingerprint and an off-chain reasoning receipt.
+
+## The problem
+
+Traditional "AI trading bots" optimize for speed and opacity. When something goes wrong — a bad swap, a policy bypass, a runaway loop — there is no canonical artifact to replay. Logs are mutable. Rationale is prose. On-chain txs show *what* moved, not *why* it was authorized.
+
+For protocol teams, researchers, and auditors, that opacity is the blocker for production adoption of autonomous finance.
+
+## What AMEO does
+
+Every cognition cycle follows the same pipeline:
+
+1. **Observe** — snapshot treasury balances, gas, and market signals from Mantle RPC and configured feeds.
+2. **Reason** — compile a structured action plan (with LLM or deterministic fallback) and hash the rationale.
+3. **Policy** — evaluate hard predicates *outside* the model; failed plans never reach signing.
+4. **Execute** — broadcast policy-approved transactions via the Mantle DEX adapter.
+5. **Prove** — emit `DecisionLogged` on an [ERC-8004](/glossary#erc-8004)-inspired identity contract and optionally anchor the full reasoning blob on 0G Storage.
+
+The Narrative Console replays any recorded cycle across nine verification nodes — from observation through settlement.
+
+## How it is different
+
+| Typical agent stack | AMEO |
+| --- | --- |
+| Model decides and executes | Model proposes; policy engine authorizes |
+| Logs in a database | Append-only JSONL event store + on-chain log |
+| "Trust our UI" | Explorer links + replay API + optional 0G receipt |
+| Single LLM vendor | Provider fallback chain with safe `local_rules` default |
+
+Every action can be traced from thought to trade with cryptographic commitments at each layer.
+
+## Who it is for
+
+- **Protocol teams** running treasury or agentic wallet programs on Mantle.
+- **Researchers** studying policy-bound autonomous agents and verifiable cognition.
+- **Auditors and operators** who need replay, not narration.
+
+Ready to run it locally? Continue to the [Quickstart](/quickstart).

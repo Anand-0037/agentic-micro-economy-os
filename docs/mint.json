@@ -1,0 +1,68 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "AMEO",
+  "logo": {
+    "light": "/logo/ameo-light.png",
+    "dark": "/logo/ameo-dark.png"
+  },
+  "favicon": "/logo/favicon.png",
+  "colors": {
+    "primary": "#C36A4F",
+    "light": "#E8622A",
+    "dark": "#1F1A17",
+    "background": {
+      "light": "#F5F0E8",
+      "dark": "#1F1A17"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/AnandVashisht15/agentic-micro-economy-os"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Open the Console",
+    "url": "https://ameo.agiwithai.com/app"
+  },
+  "navigation": [
+    {
+      "group": "Get started",
+      "pages": ["introduction", "quickstart", "why-it-matters"]
+    },
+    {
+      "group": "Concepts",
+      "pages": [
+        "concepts/verifiable-cognition",
+        "concepts/agent-identity",
+        "concepts/policy-engine",
+        "concepts/proof-trail"
+      ]
+    },
+    {
+      "group": "How it works",
+      "pages": ["architecture", "policy-spec", "security"]
+    },
+    {
+      "group": "API reference",
+      "pages": ["api/worker-api", "api/contracts"]
+    },
+    {
+      "group": "Guides",
+      "pages": [
+        "guides/run-locally",
+        "guides/deploy",
+        "guides/write-a-policy",
+        "guides/byreal-skills-integration"
+      ]
+    },
+    {
+      "group": "About",
+      "pages": ["roadmap", "glossary"]
+    }
+  ],
+  "footerSocials": {
+    "twitter": "https://x.com/AnandVashisht15",
+    "github": "https://github.com/AnandVashisht15/agentic-micro-economy-os"
+  }
+}

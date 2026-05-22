@@ -1,0 +1,51 @@
+---
+title: "Contracts"
+description: "MantleAgentIdentity public interface and ABI."
+---
+
+Primary contract: **`MantleAgentIdentity`** — ERC-721 agent identity with `[DecisionLogged](/glossary#decisionlogged-event)` audit log.
+
+Deployed on Mantle Sepolia: `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197` (verified on Mantlescan).
+
+Source: `packages/contracts/src/MantleAgentIdentity.sol`
+
+## Events
+
+| Event | Indexed fields | Payload |
+| --- | --- | --- |
+| `DecisionLogged` | `agentId` | `rationaleHash`, `actionType`, `metadataUri`, `operator` |
+
+## Functions
+
+| Function | Visibility | Description |
+| --- | --- | --- |
+| `mintAgent(address operator)` | external, `onlyOwner` | Mint agent NFT to `operator`, return `tokenId` |
+| `logDecision(uint256 agentId, bytes32 rationaleHash, string actionType, string metadataUri)` | external | Caller must own `agentId`; updates snapshot + emits event |
+
+## View mappings
+
+| Mapping | Returns |
+| --- | --- |
+| `lastRationaleHash(agentId)` | Latest rationale hash |
+| `lastActionHash(agentId)` | `keccak256(actionType)` |
+| `lastMetadataUri(agentId)` | Latest metadata URI |
+| `nextTokenId` | Next mint id |
+
+## Build & verify
+
+```bash
+cd packages/contracts
+forge build
+```
+
+Set `AGENT_IDENTITY_ADDRESS` and `AGENT_TOKEN_ID` in worker + web env. The canonical deployment is already live; only redeploy if you are running a private fork.
+
+## ABI
+
+Generated ABI after build:
+
+```
+packages/contracts/out/MantleAgentIdentity.sol/AgentIdentity.json
+```
+
+Verify source on Mantlescan after any new deployment.
