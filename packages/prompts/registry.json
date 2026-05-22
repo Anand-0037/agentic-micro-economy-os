@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0",
+  "prompts": [
+    {
+      "id": "P-001",
+      "path": "system/P-001.md",
+      "description": "System guard prompt for ActionPlan generation"
+    },
+    {
+      "id": "P-002",
+      "path": "system/P-002.md",
+      "description": "Delta-neutral strategy planning prompt"
+    },
+    {
+      "id": "P-003",
+      "path": "system/P-003.md",
+      "description": "Funding arbitrage strategy prompt"
+    }
+  ]
+}

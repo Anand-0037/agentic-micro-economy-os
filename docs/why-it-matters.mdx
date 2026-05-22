@@ -1,0 +1,31 @@
+---
+title: "Why it matters"
+description: "Why trust infrastructure is the bottleneck for AI economic agents."
+---
+
+Autonomous treasuries are no longer hypothetical. DAOs, foundations, and protocol-owned liquidity already move capital programmatically — but without verifiable cognition, operators and third parties cannot independently audit *why* capital moved.
+
+That opacity creates real failure modes: hidden policy bypass, unaccountable agent behavior, and loss of trust in autonomous finance. Regulators, boards, and communities increasingly ask not *what* traded, but *what authorized the trade*.
+
+## Auditability as infrastructure
+
+AMEO treats replay and proof as first-class product surfaces — not afterthought logging.
+
+- **Append-only worker events** reconstruct every cycle from observation through settlement.
+- **Deterministic policy gates** run outside the model; cognition and authorization are separate layers.
+- **On-chain decision fingerprints** tie actions to a persistent agent identity via `DecisionLogged`.
+- **Off-chain reasoning anchors** ([0G Storage](/glossary#0g-storage) when configured) hold the full rationale blob while Mantle stores the commitment hash.
+
+When inference providers fail, AMEO falls back to `local_rules` — a deterministic planner that still enforces policy and can refuse to act. Safety is the default, not a demo toggle.
+
+## Who benefits
+
+| Stakeholder | What they get |
+| --- | --- |
+| Protocol operators | Policy-bound execution with explorer-verifiable txs |
+| Researchers | Structured event logs + formal predicate spec |
+| Auditors | Nine-node replay with JSON evidence per step |
+
+AMEO is built so **any** autonomous treasury program can be independently verified — fork the MIT codebase, deploy your own identity NFT, and run the same cognition loop on Mantle.
+
+Explore the [architecture](/architecture) or start the [quickstart](/quickstart).

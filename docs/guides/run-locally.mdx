@@ -1,0 +1,76 @@
+---
+title: "Run locally"
+description: "Worker modes, RPC configuration, and identity setup beyond Quickstart."
+---
+
+This guide expands on the [Quickstart](/quickstart) with operational detail.
+
+## Worker modes
+
+Set `WORKER_MODE` in `.env`:
+
+| Mode | Behavior |
+| --- | --- |
+| `dry_run` | Full cognition loop; no broadcast txs |
+| `live_limited` | Live execution with notional caps |
+| `live` | Full live (requires `LIVE_ENABLED=true`) |
+
+Also set `LIVE_ENABLED=true` only when you intend to spend real testnet gas.
+
+## RPC configuration
+
+| Variable | Notes |
+| --- | --- |
+| `MANTLE_RPC_URL` | Primary Sepolia RPC |
+| `MANTLE_CHAIN_ID` | `5003` for Mantle Sepolia |
+
+The web app mirrors RPC via `VITE_MANTLE_RPC_URL` and optional `VITE_MANTLE_RPC_URL_FALLBACK`.
+
+Test connectivity:
+
+```bash
+curl -s -X POST "$MANTLE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+```
+
+## DEX adapter
+
+`EXECUTION_ADAPTER=mantle_dex` uses Merchant Moe / FusionX routers configured in `.env`:
+
+- `MERCHANT_MOE_ROUTER`, `FUSIONX_V2_ROUTER`
+- `DEX_SLIPPAGE_BPS`, `DEX_SWAP_DEADLINE_SEC`
+
+Smoke test:
+
+```bash
+cd apps/worker && uv run python ../../scripts/exec-smoke.py
+```
+
+## Mint your own agent identity
+
+1. Deploy contract (see [Contracts](/api/contracts)).
+2. `cast send $CONTRACT "mintAgent(address)" $YOUR_EOA --rpc-url $MANTLE_RPC_URL --private-key $DEPLOYER_KEY`
+3. Set `AGENT_IDENTITY_ADDRESS`, `AGENT_TOKEN_ID`, `AGENT_PRIVATE_KEY` in `.env`.
+
+## Docker alternative
+
+```bash
+docker compose up --build
+```
+
+Web: `:5173` · Worker: `:8000`
+
+## Logs and replay
+
+- JSONL events: `apps/worker/logs/events/events_YYYYMMDD.jsonl`
+- Replay API: `GET /api/cycles/{cycle_id}`
+- Live tail: `GET /api/events/tail` (SSE)
+
+## One-command local script
+
+```bash
+./scripts/deploy_local.sh
+```
+
+Starts worker + web together (requires uv, npm, free ports 8000/5173).

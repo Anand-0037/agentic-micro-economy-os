@@ -1,0 +1,38 @@
+---
+title: "Policy engine"
+description: "Five core predicates that authorize execution outside the LLM."
+---
+
+The policy engine is a **deterministic authorization layer**. The LLM (or `local_rules` fallback) proposes plans; predicates decide whether execution may proceed.
+
+## Core predicates
+
+| Predicate | Question it answers |
+| --- | --- |
+| `drawdown_ok` | Is 24h PnL above the max drawdown floor? |
+| `whitelist_ok` | Are all assets in `ALLOWED_TOKENS`? |
+| `trade_size_ok` | Is each leg below `MAX_TRADE_SIZE_USD`? |
+| `slippage_ok` | Is expected slippage within `MAX_SLIPPAGE_BPS`? |
+| `daily_volume_ok` | Will this trade exceed the daily notional cap? |
+
+All five must pass:
+
+```
+plan_approved ⇔ drawdown_ok ∧ whitelist_ok ∧ trade_size_ok ∧ slippage_ok ∧ daily_volume_ok
+```
+
+## Where code lives
+
+| Layer | Path |
+| --- | --- |
+| Predicate definitions | `apps/worker/ameo_worker/policy.py` |
+| Extended checks (gas, balance, protocol) | `apps/worker/ameo_worker/services/guardrail_service.py` |
+| Graph integration | `apps/worker/ameo_worker/graph.py` → `guardrail` node |
+
+Failed checks emit `guardrail_evaluated` with a `violations[]` array. The replay UI surfaces each rule as pass/fail in the Policy validation node.
+
+## Formal spec
+
+See the full predicate table and failure semantics in [Policy specification](/policy-spec).
+
+To extend predicates, follow [Write a policy](/guides/write-a-policy).

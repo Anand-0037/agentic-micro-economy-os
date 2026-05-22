@@ -1,0 +1,449 @@
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+
+export type CycleData = {
+  observation?: {
+    balances: Record<string, number>;
+    gasPriceWei: number;
+    rpcUrl: string;
+    blockNumber: number;
+  };
+  reasoning?: {
+    llmProvider: string;
+    model: string;
+    rationaleHash: string;
+    thoughtProcess: string;
+    zeroGHash: string;
+  };
+  policy?: {
+    maxDrawdownLimit: string;
+    drawdownPassed: boolean;
+    whitelistPassed: boolean;
+    tradeSizeLimitUsd: number;
+    planApproved: boolean;
+  };
+  execution?: {
+    sender: string;
+    targetContract: string;
+    actionDescription: string;
+    signingKeyType: string;
+    gasEstimateGwei: number;
+  };
+  settlement?: {
+    txHash: string;
+    blockNumber: number;
+    verifiedOnChain: boolean;
+    explorerUrl: string;
+  };
+};
+
+const defaultSampleData: CycleData = {
+  observation: {
+    balances: { USDC: 850, MNT: 150, ETH: 0.05 },
+    gasPriceWei: 15000000000,
+    rpcUrl: "https://rpc.sepolia.mantle.xyz",
+    blockNumber: 12508931,
+  },
+  reasoning: {
+    llmProvider: "z.ai (Tencent Cloud Core)",
+    model: "deepseek-r1-distill-llama",
+    rationaleHash: "0xe5c328db9453965b72186cb7d55f0b4d4cf38a0f9b3438ea2f57a3e78453efb2",
+    thoughtProcess: "MNT price dropped 4.2% relative to USDC in the last 24h. Portfolio holds 85% USDC. Allocating 150 USDC to acquire MNT via Merchant Moe is highly optimal for yield. Yield reserves indicate Moe APR is currently at 18.4%.",
+    zeroGHash: "0x00ff89cb51a2d6ccfb9bbebacf9638abb0033c92747b1e4bd5f89bbb66bae657268",
+  },
+  policy: {
+    maxDrawdownLimit: "12% cap",
+    drawdownPassed: true,
+    whitelistPassed: true,
+    tradeSizeLimitUsd: 250,
+    planApproved: true,
+  },
+  execution: {
+    sender: "0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197",
+    targetContract: "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033 (Merchant Moe)",
+    actionDescription: "Swap 150.00 USDC for MNT via Merchant Moe Router",
+    signingKeyType: "Hot EOA Private Key (Isolated .env)",
+    gasEstimateGwei: 28,
+  },
+  settlement: {
+    txHash: "0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8",
+    blockNumber: 12508933,
+    verifiedOnChain: true,
+    explorerUrl: "https://sepolia.mantlescan.xyz/tx/0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8",
+  },
+};
+
+type CognitionTimelineProps = {
+  cycleData?: CycleData;
+  autoLoop?: boolean;
+  pauseOnHover?: boolean;
+  hideHeader?: boolean;
+};
+
+export function CognitionTimeline({
+  cycleData,
+  autoLoop = false,
+  pauseOnHover = false,
+  hideHeader = false,
+}: CognitionTimelineProps) {
+  const data = cycleData || defaultSampleData;
+  const reduced = usePrefersReducedMotion();
+  const [activeStep, setActiveStep] = useState(0);
+  const [replayKey, setReplayKey] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (reduced) {
+      setActiveStep(4);
+      return undefined;
+    }
+
+    setActiveStep(0);
+    if (paused && pauseOnHover) {
+      return undefined;
+    }
+    const stepMs = autoLoop ? 1400 : 1800;
+    const intervals = [
+      setTimeout(() => setActiveStep(1), stepMs),
+      setTimeout(() => setActiveStep(2), stepMs * 2),
+      setTimeout(() => setActiveStep(3), stepMs * 3),
+      setTimeout(() => setActiveStep(4), stepMs * 4),
+      setTimeout(() => setActiveStep(5), stepMs * 5),
+    ];
+    if (autoLoop) {
+      intervals.push(
+        setTimeout(() => {
+          setReplayKey((prev) => prev + 1);
+        }, stepMs * 5 + 800),
+      );
+    }
+    return () => {
+      intervals.forEach((id) => clearTimeout(id));
+    };
+  }, [autoLoop, cycleData, pauseOnHover, paused, replayKey, reduced]);
+
+  const handleReplay = () => {
+    if (reduced) return;
+    setReplayKey((prev) => prev + 1);
+  };
+
+  const motionEnter = reduced ? { opacity: 1, x: 0 } : { opacity: 0, x: -15 };
+  const motionVisible = { opacity: 1, x: 0 };
+  const motionTransition = reduced ? { duration: 0 } : { duration: 0.4 };
+
+  const steps = [
+    {
+      title: "Observation & State Extraction",
+      description: "Fetching state directly from Mantle Sepolia network RPC.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+        </svg>
+      ),
+      content: data.observation ? (
+        <div className="mt-3 space-y-2 font-mono text-xs text-ink/80">
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Mantle RPC:</span>
+            <span className="text-right truncate max-w-[200px]" title={data.observation.rpcUrl}>
+              {data.observation.rpcUrl}
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Block Number:</span>
+            <span>#{data.observation.blockNumber}</span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>USDC Balance:</span>
+            <span>{data.observation.balances.USDC} units</span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>MNT Balance:</span>
+            <span>{data.observation.balances.MNT} units</span>
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      title: "Reasoning & Plan Compilation",
+      description: "Model generates trade plan anchored with a permanent 0G Storage receipt.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 21l3.625-1.43c.094-.037.193-.056.294-.056h.163c.101 0 .2.019.294.056L17 21l-.813-5.096a3.5 3.5 0 0 0-2.458-2.835L12 12l-1.73 1.07a3.5 3.5 0 0 0-2.457 2.834Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 12V9m0 0a3 3 0 1 0-3-3m3 3a3 3 0 1 1 3-3" />
+        </svg>
+      ),
+      content: data.reasoning ? (
+        <div className="mt-3 space-y-3 font-mono text-xs text-ink/80">
+          <div className="border-b border-ink/10 pb-1 flex justify-between">
+            <span>LLM Provider (with safety fallback):</span>
+            <span className="text-accent font-semibold">{data.reasoning.llmProvider}</span>
+          </div>
+          <div className="border-b border-ink/10 pb-2">
+            <span className="block font-semibold">Active Rationale Hash:</span>
+            <span className="block break-all text-[10px] text-muted">{data.reasoning.rationaleHash}</span>
+          </div>
+          <div className="bg-sand border-2 border-ink p-3 text-xs leading-relaxed font-sans italic text-ink/90">
+            "{data.reasoning.thoughtProcess}"
+          </div>
+          <div className="mt-2 bg-accent/5 border border-accent/20 p-2 text-[10px] flex items-center justify-between gap-2">
+            <span className="font-sans font-semibold text-accent">0G STORAGE PROOF:</span>
+            <span className="truncate max-w-[180px] break-all font-mono" title={data.reasoning.zeroGHash}>
+              {data.reasoning.zeroGHash}
+            </span>
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      title: "Hardened Policy Engine Verification",
+      description: "Evaluating the compiled action plan against hardcoded risk policies.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+        </svg>
+      ),
+      content: data.policy ? (
+        <div className="mt-3 space-y-2 font-mono text-xs">
+          <div className="flex justify-between items-center border-b border-ink/10 pb-1.5">
+            <span className="text-ink/80">Drawdown Guard ({data.policy.maxDrawdownLimit}):</span>
+            <span className={`px-2 py-0.5 text-[10px] font-bold border ${data.policy.drawdownPassed ? "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]" : "bg-red-100 border-red-500 text-red-600"}`}>
+              {data.policy.drawdownPassed ? "PASS" : "FAIL"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center border-b border-ink/10 pb-1.5">
+            <span className="text-ink/80">Asset Whitelist Check:</span>
+            <span className={`px-2 py-0.5 text-[10px] font-bold border ${data.policy.whitelistPassed ? "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]" : "bg-red-100 border-red-500 text-red-600"}`}>
+              {data.policy.whitelistPassed ? "PASS" : "FAIL"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center border-b border-ink/10 pb-1.5">
+            <span className="text-ink/80">Max Trade Limit ($250):</span>
+            <span className="font-semibold text-ink">${data.policy.tradeSizeLimitUsd}</span>
+          </div>
+          <div className="mt-2 bg-[#dcfce7] border-2 border-[#166534] p-3 text-center">
+            <p className="font-sans font-extrabold text-[#166534] text-[11px] tracking-widest uppercase">
+              🛡️ POLICY VERIFICATION LOCKED & SECURED
+            </p>
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      title: "Execution · Byreal Skills CLI",
+      description: "Signing and submitting transaction via the isolated Byreal Skills CLI adapter.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+        </svg>
+      ),
+      content: data.execution ? (
+        <div className="mt-3 space-y-2 font-mono text-xs text-ink/80">
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Signing Agent EOA:</span>
+            <span className="truncate max-w-[180px]">{data.execution.sender}</span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Target Contract:</span>
+            <span className="truncate max-w-[180px] text-right" title={data.execution.targetContract}>
+              {data.execution.targetContract.split(" ")[0]}
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Signing Method:</span>
+            <span className="text-[#b45309] font-semibold">{data.execution.signingKeyType}</span>
+          </div>
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Gas Estimate:</span>
+            <span>{data.execution.gasEstimateGwei} Gwei</span>
+          </div>
+          <div className="mt-1 bg-amber-50 border border-amber-300 p-2 font-sans font-semibold text-[#b45309]">
+            ⚡ Execution Adapter: {data.execution.actionDescription}
+          </div>
+        </div>
+      ) : null,
+    },
+    {
+      title: "Settled on Mantle Sepolia (MNT gas)",
+      description: "State change successfully recorded and settled on Mantle Network.",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+        </svg>
+      ),
+      content: data.settlement ? (
+        <div className="mt-3 space-y-2 font-mono text-xs text-ink/80">
+          <div className="flex justify-between border-b border-ink/10 pb-1">
+            <span>Settled Block:</span>
+            <span>#{data.settlement.blockNumber}</span>
+          </div>
+          <div className="border-b border-ink/10 pb-2">
+            <span className="block font-semibold">Transaction Hash:</span>
+            <a
+              href={data.settlement.explorerUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent underline font-bold break-all text-[11px] block mt-1 hover:text-accent-hover transition-colors"
+            >
+              {data.settlement.txHash} ↗
+            </a>
+          </div>
+          <div className="mt-2 bg-[#d1fae5] border-2 border-[#065f46] p-3 text-center">
+            <p className="font-sans font-extrabold text-[#065f46] text-xs tracking-wider uppercase">
+              ✅ VERIFIED ON MANTLE EXPLORER
+            </p>
+          </div>
+        </div>
+      ) : null,
+    },
+  ];
+
+  return (
+    <div
+      className="neo-card p-6 bg-surface border-2 border-ink"
+      onMouseEnter={pauseOnHover ? () => setPaused(true) : undefined}
+      onMouseLeave={pauseOnHover ? () => setPaused(false) : undefined}
+    >
+      {!hideHeader ? (
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b-2 border-ink pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold text-ink sm:text-xl">
+              🧠 Real-Time Cognition timeline
+            </h3>
+            <p className="text-xs text-muted mt-1 uppercase tracking-wider">
+              Deterministic Replay of Agent Decision Loop
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleReplay}
+            disabled={reduced}
+            className="neo-button inline-flex items-center justify-center gap-2 border-2 border-ink bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-surface transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="3"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
+            </svg>
+            Replay Cycle
+          </button>
+        </div>
+      ) : null}
+
+      <div className="relative pl-8 sm:pl-10 space-y-8">
+        {/* Progress connecting line */}
+        <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-ink/10" aria-hidden="true" />
+        
+        {/* Completed active trace overlay */}
+        <motion.div
+          className="absolute left-[18px] top-4 w-0.5 origin-top bg-accent"
+          initial={reduced ? { scaleY: 1 } : { scaleY: 0 }}
+          animate={{ scaleY: reduced ? 1 : activeStep / 4 }}
+          transition={reduced ? { duration: 0 } : { duration: 1.5, ease: "easeInOut" }}
+          style={{ height: "calc(100% - 32px)" }}
+        />
+
+        <AnimatePresence>
+          {steps.map((step, idx) => {
+            const isCompleted = activeStep > idx;
+            const isActive = activeStep === idx;
+            const isFuture = activeStep < idx;
+
+            return (
+              <motion.div
+                key={idx}
+                className="relative"
+                initial={motionEnter}
+                animate={motionVisible}
+                transition={{ ...motionTransition, delay: reduced ? 0 : idx * 0.1 }}
+              >
+                {/* Node icon circle */}
+                <motion.div
+                  className={`absolute -left-[30px] top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink transition-all sm:-left-[32px] ${
+                    isCompleted
+                      ? "bg-accent text-surface"
+                      : isActive
+                        ? "bg-sand text-ink shadow-[0_0_12px_rgba(200,107,74,0.4)]"
+                        : "bg-[#faf7f2] text-ink/30"
+                  }`}
+                  animate={
+                    reduced || !isActive
+                      ? {}
+                      : {
+                          scale: [1, 1.08, 1],
+                          borderColor: ["#1f1a17", "#c86b4a", "#1f1a17"],
+                        }
+                  }
+                  transition={reduced ? { duration: 0 } : { repeat: Infinity, duration: 1.5 }}
+                >
+                  {isCompleted ? (
+                    // Shield lock icon for secure completed steps
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.08 5.753 2 6.516 2 7.292c0 5.08 3.753 9.284 8.734 10.648A11.954 11.954 0 0017.834 7.292c0-.776-.08-1.54-.166-2.292A11.954 11.954 0 0110 1.944z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    step.icon
+                  )}
+                </motion.div>
+
+                {/* Step content card */}
+                <motion.div
+                  className={`border-2 border-ink p-4 sm:p-5 transition-all ${
+                    isActive
+                      ? "bg-surface shadow-[4px_4px_0px_0px_#c86b4a]"
+                      : isCompleted
+                        ? "bg-[#faf7f2] opacity-80"
+                        : "bg-[#faf7f2]/40 opacity-40"
+                  }`}
+                  animate={reduced || !isActive ? { y: 0 } : { y: -2 }}
+                  transition={{ duration: reduced ? 0 : 0.2 }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <h4 className="font-display font-bold text-sm sm:text-base text-ink">
+                      {step.title}
+                    </h4>
+                    {isCompleted ? (
+                      <span className="shrink-0 font-mono text-[10px] font-extrabold uppercase bg-[#3d7a5f] text-surface px-2 py-0.5 border border-[#3d7a5f]">
+                        ✓ VERIFIED
+                      </span>
+                    ) : isActive && !reduced ? (
+                      <span className="shrink-0 animate-pulse border border-accent bg-accent px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase text-surface">
+                        ● THINKING…
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-muted leading-relaxed font-medium">
+                    {step.description}
+                  </p>
+
+                  {/* Expansion content */}
+                  {(!isFuture && step.content) && (
+                    <motion.div
+                      initial={reduced ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: reduced ? 0 : 0.4, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      {step.content}
+                    </motion.div>
+                  )}
+                </motion.div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}

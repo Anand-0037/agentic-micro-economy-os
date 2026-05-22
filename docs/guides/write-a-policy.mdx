@@ -1,0 +1,53 @@
+---
+title: "Write a policy"
+description: "Add a new guardrail predicate end-to-end."
+---
+
+This walkthrough adds a custom predicate to the policy engine and surfaces it in replay.
+
+## 1. Define the predicate in `policy.py`
+
+Extend `PolicyEngine.validate()` with your invariant. Example — block plans when gas exceeds a ceiling:
+
+```python
+if plan.action_type != "no_op" and observation.gas_price_wei > self.config.max_gas_wei:
+    violations.append("gas_too_high")
+```
+
+Add `max_gas_wei` to `PolicyConfig` with a sensible default.
+
+## 2. Extend `GuardrailService` (optional)
+
+For checks that need observation context beyond `PolicyEngine`, add logic in `apps/worker/ameo_worker/services/guardrail_service.py` → `check_plan()`.
+
+Existing examples: observation quality, balance sufficiency, gas spike, protocol whitelist.
+
+## 3. Emit structured violations
+
+The graph `guardrail` node already emits:
+
+```python
+EventType.GUARDRAIL_EVALUATED
+data={"ok": guardrail_ok, "violations": violations}
+```
+
+Keep violation strings stable — they appear in replay JSON.
+
+## 4. Surface in replay
+
+`cycle_store.py` maps `guardrail_evaluated` events to `PolicyCheck` rows. New violation codes appear automatically in the Policy validation node when checks fail.
+
+## 5. Test
+
+```bash
+cd apps/worker
+uv run pytest tests/ -q
+```
+
+Add a unit test in `tests/test_policy.py` (or extend an existing test module) that asserts your predicate blocks an invalid plan.
+
+## 6. Document
+
+Add a row to [Policy specification](/policy-spec) predicate table.
+
+**Rule:** predicates must be **deterministic** — no LLM calls inside the guardrail layer.

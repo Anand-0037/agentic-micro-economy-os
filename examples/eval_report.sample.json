@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-05-21T00:00:00Z",
+  "window_days": 7,
+  "metrics": {
+    "decisions_logged_count": 12,
+    "policy_pass_rate": 0.92,
+    "slippage_compliance_rate": 1.0,
+    "cli_recovery_mean_seconds": 420,
+    "executed_plans_count": 8,
+    "no_op_count": 4
+  },
+  "state_machine_traversal": [
+    { "day": "2026-05-15", "observe": 4, "plan": 4, "execute": 2, "log": 2, "halt": 0 },
+    { "day": "2026-05-16", "observe": 4, "plan": 4, "execute": 3, "log": 3, "halt": 0 },
+    { "day": "2026-05-17", "observe": 3, "plan": 3, "execute": 1, "log": 1, "halt": 1 },
+    { "day": "2026-05-18", "observe": 4, "plan": 4, "execute": 2, "log": 2, "halt": 0 },
+    { "day": "2026-05-19", "observe": 4, "plan": 4, "execute": 3, "log": 3, "halt": 0 },
+    { "day": "2026-05-20", "observe": 4, "plan": 4, "execute": 2, "log": 2, "halt": 0 },
+    { "day": "2026-05-21", "observe": 2, "plan": 2, "execute": 1, "log": 1, "halt": 0 }
+  ],
+  "limitations": [
+    "Short history bias — 7-day testnet sample only",
+    "Oracle lag not modeled in PnL proxy",
+    "Gas costs may dominate on small treasury",
+    "Sharpe ratio omitted — statistically meaningless at this N"
+  ],
+  "day0_gate": {
+    "byreal_cli_spike": "pending",
+    "demo_yield_path": "pending"
+  }
+}

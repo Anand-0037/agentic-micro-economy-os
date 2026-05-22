@@ -1,0 +1,36 @@
+---
+title: "Glossary"
+description: "Definitions for terms used across AMEO documentation."
+---
+
+## ERC-8004
+
+The agent-identity standard implemented by `MantleAgentIdentity.sol`. Each agent is represented by a token whose lifecycle events — including `DecisionLogged` — are emitted on-chain. The agent's token id binds every action to a verifiable identity.
+
+## 0G Storage
+
+Decentralized data-availability layer where AMEO anchors the full reasoning trace for each cognition cycle. The on-chain `DecisionLogged` event stores only the content hash; the blob itself lives on 0G and is fetchable via the 0G indexer.
+
+## DecisionLogged event
+
+The canonical on-chain receipt emitted by `MantleAgentIdentity` for every agent action. Carries: `agentId`, `rationaleHash`, `pnl1e18`, `actionType`, `metadataUri`, `dataHash`, `operator`. This is the primary audit trail.
+
+## Cognition cycle
+
+One full **Observe → Reason → Policy → Execute → Settle** loop, identified by a `cyc_*` cycle ID. Each cycle produces one `DecisionLogged` event and one 0G receipt.
+
+## Policy predicate
+
+A boolean rule enforced before any transaction is signed. AMEO ships five: `drawdown_ok`, `whitelist_ok`, `trade_size_ok`, `slippage_ok`, `daily_volume_ok`. All five must pass or the cycle terminates without execution.
+
+## Mantle Sepolia
+
+Ethereum L2 testnet (chain id `5003`) where AMEO settles all reference transactions during this phase. Mainnet migration is in [roadmap](/roadmap).
+
+## Byreal Skills CLI
+
+The agent-skill execution layer AMEO calls from the Execution node to sign and broadcast on-chain transactions. AMEO's worker invokes Byreal Skills as the canonical signing path; the skill identifier and version are recorded in every cycle's metadata.
+
+## Hot EOA
+
+An externally-owned account (standard private-key wallet) used by the worker for signing. AMEO uses one hot EOA per agent during this phase. Production deployments should migrate to KMS or MPC custody — see [security](/security).

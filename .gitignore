@@ -1,0 +1,68 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.keystore
+*.key
+
+# Python / Node / build
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+.cache/
+coverage/
+*.log
+
+# Foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/**/dry-run/
+packages/contracts/standard-input.json
+
+# Worker runtime
+apps/worker/logs/
+apps/worker/*.db
+apps/worker/*.db-journal
+apps/data/*.db
+apps/data/*.db-journal
+**/*.db
+**/*.db-journal
+apps/worker/eval_report.json
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Internal — never publish
+agent-context/
+hack/
+marketing/
+.playwright-mcp/
+docs/assets/decision-logs-*.md
+*.tsbuildinfo
+
+# Audit artifacts
+audit-report-*.md
+sweep-report-*.md
+
+# Existing project ignores
+apps/web/dist/
+bin/0g-storage-client
+.env.sentry-build-plugin
+docs/MASTER-BUILD-PROMPT.md
+docs/chatgpt-judge-prompt.md
+*.local.md
+*.private.md
+*.draft.md
+DOCS_AUDIT_REPORT.md
+W11_W12_REPORT.md
+W13_REPORT.md

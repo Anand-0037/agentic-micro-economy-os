@@ -1,0 +1,68 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: ameo-worker
+    env_file:
+      - .env
+    environment:
+      MEMORY_DB_PATH: ${MEMORY_DB_PATH:-/data/ameo.db}
+      ZERO_G_CLI_PATH: /usr/local/bin/0g-storage-client
+    ports:
+      - "8000:8000"
+    volumes:
+      - ameo-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ameo-net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_WORKER_URL: ${VITE_WORKER_URL:-http://localhost:8000}
+        VITE_MANTLE_RPC_URL: ${VITE_MANTLE_RPC_URL:-https://rpc.mantle.xyz}
+        VITE_MANTLE_CHAIN_ID: ${VITE_MANTLE_CHAIN_ID:-5000}
+        VITE_AGENT_IDENTITY_ADDRESS: ${VITE_AGENT_IDENTITY_ADDRESS:-0x0000000000000000000000000000000000000000}
+        VITE_AGENT_TOKEN_ID: ${VITE_AGENT_TOKEN_ID:-0}
+        VITE_MANTLE_EXPLORER_BASE: ${VITE_MANTLE_EXPLORER_BASE:-https://explorer.mantle.xyz}
+        VITE_LOG_FROM_BLOCK: ${VITE_LOG_FROM_BLOCK:-0}
+        VITE_TREASURY_EOA: ${VITE_TREASURY_EOA:-${TREASURY_EOA:-0x0000000000000000000000000000000000000000}}
+        VITE_DOCS_URL: ${VITE_DOCS_URL:-http://localhost:3000}
+        VITE_GITHUB_URL: ${VITE_GITHUB_URL:-}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-0.1.0}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-${SENTRY_DSN:-}}
+        VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT:-${SENTRY_ENVIRONMENT:-production}}
+        VITE_0G_INDEXER_URL: ${VITE_0G_INDEXER_URL:-https://indexer-storage-turbo.0g.ai}
+    container_name: ameo-web
+    ports:
+      - "5173:80"
+    depends_on:
+      worker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ameo-net
+
+volumes:
+  ameo-data:
+
+networks:
+  ameo-net:
+    driver: bridge

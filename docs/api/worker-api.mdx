@@ -1,0 +1,111 @@
+---
+title: "Worker API"
+description: "REST endpoints for the AMEO Python worker."
+---
+
+Base URL: `http://localhost:8000` (local) or your deployed worker URL.
+
+The web console may also read Mantle RPC directly via wagmi for on-chain events.
+
+## Authentication
+
+MVP assumes a trusted operator network. Do not expose unauthenticated `/api/start` or `/run-cycle` on the public internet without rate limits and auth.
+
+## Endpoints
+
+### `GET /health`
+
+Liveness probe.
+
+```json
+{ "status": "ok" }
+```
+
+### `GET /api/status`
+
+Agent runner state, last cycle metadata, observation snapshot.
+
+### `GET /api/history`
+
+Recent runs / decisions from SQLite memory.
+
+### `GET /api/policy`
+
+Default guardrail parameters (max slippage, caps, whitelist).
+
+### `GET /api/public-config`
+
+Non-secret operational metadata (chain id, contract address, worker mode).
+
+### `GET /api/eval-report`
+
+Parsed `eval_report.json` (decision-quality metrics).
+
+### `GET /api/cycles`
+
+List recorded cognition cycles from JSONL event store.
+
+Query: `limit`, `offset`
+
+### `GET /api/cycles/{cycle_id}`
+
+Full replay payload for one cycle (nine-node reconstruction).
+
+### `GET /api/decisions`
+
+On-chain `[DecisionLogged](/glossary#decisionlogged-event)` events via Mantle client.
+
+### `GET /api/events/tail`
+
+Server-Sent Events stream of append-only JSONL worker events.
+
+### `GET /api/llm-chain`
+
+LLM provider fallback chain status.
+
+### `POST /api/start` · `POST /api/stop`
+
+Start/stop scheduled agent runner.
+
+### `POST /run-cycle`
+
+Trigger a single observe-plan-act-log cycle.
+
+```json
+{
+  "correlation_id": "uuid",
+  "outcome": "executed|no_op|policy_rejected|error",
+  "tx_hash": "0x..."
+}
+```
+
+## On-chain events
+
+Read `DecisionLogged` from `AGENT_IDENTITY_ADDRESS`:
+
+```solidity
+event DecisionLogged(
+    uint256 indexed agentId,
+    bytes32 rationaleHash,
+    int256 pnl1e18,
+    string actionType,
+    string metadataUri,
+    string dataHash,
+    address operator
+);
+```
+
+## Errors
+
+| HTTP | Meaning |
+| --- | --- |
+| 403 | Policy rejected plan |
+| 404 | Cycle not found |
+| 503 | RPC or adapter unavailable |
+| 429 | Rate limited |
+
+## Webhooks
+
+None in MVP.
+
+See [Contracts API](/api/contracts) for on-chain interface details.

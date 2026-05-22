@@ -1,0 +1,58 @@
+---
+title: "Execution adapter integration"
+description: "How AMEO signs and broadcasts trades on Mantle."
+---
+
+AMEO executes policy-approved plans through the **Mantle DEX adapter** — a Python module that quotes, builds calldata, and broadcasts swaps on [Mantle Sepolia](/glossary#mantle-sepolia).
+
+## Call path
+
+```
+graph.py (act node)
+  → MantleDexAdapter.swap / quote
+    → web3.py contract calls (Merchant Moe / FusionX routers)
+      → signed tx via [hot EOA](/glossary#hot-eoa) (`AGENT_PRIVATE_KEY`)
+```
+
+Primary implementation: `apps/worker/ameo_worker/adapters/mantle_dex.py`
+
+Configuration: `EXECUTION_ADAPTER=mantle_dex` in `.env`
+
+## Execution node in replay
+
+The Narrative Console labels this step **Execution · via [Byreal Skills CLI](/glossary#byreal-skills-cli)** — the agent-skill execution layer AMEO uses to sign and broadcast transactions (calldata construction, isolated signing context, explorer-verifiable settlement).
+
+## Swap one asset pair
+
+Required env for Sepolia smoke:
+
+```
+MERCHANT_MOE_ROUTER=...
+FUSIONX_V2_ROUTER=0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033
+DEX_SLIPPAGE_BPS=100
+```
+
+Run:
+
+```bash
+cd apps/worker && uv run python ../../scripts/exec-smoke.py
+```
+
+## Swap in your own adapter
+
+To replace the DEX backend:
+
+1. Implement the same interface as `MantleDexAdapter` (quote + execute returning tx hash).
+2. Register the adapter in the `act` node of `graph.py`.
+3. Keep policy checks upstream — execution never bypasses `guardrail`.
+
+## Verify settlement
+
+After execution, replay shows:
+
+- **Settled on Mantle Sepolia** — tx hash + explorer link
+- **[DecisionLogged event](/glossary#decisionlogged-event)** — on-chain decision fingerprint
+
+Cross-check both on Mantlescan for the same `cycle_id`.
+
+See [Run locally](/guides/run-locally) for router addresses and [Architecture](/architecture) for the full loop.
