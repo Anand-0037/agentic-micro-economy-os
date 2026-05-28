@@ -18,7 +18,7 @@
   "topbarLinks": [
     {
       "name": "GitHub",
-      "url": "https://github.com/AnandVashisht15/agentic-micro-economy-os"
+      "url": "https://github.com/Anand-0037/agentic-micro-economy-os"
     }
   ],
   "topbarCtaButton": {
@@ -44,6 +44,10 @@
       "pages": ["architecture", "policy-spec", "security"]
     },
     {
+      "group": "Integrations",
+      "pages": ["api/v1", "sdk", "mcp"]
+    },
+    {
       "group": "API reference",
       "pages": ["api/worker-api", "api/contracts"]
     },
@@ -63,6 +67,6 @@
   ],
   "footerSocials": {
     "twitter": "https://x.com/AnandVashisht15",
-    "github": "https://github.com/AnandVashisht15/agentic-micro-economy-os"
+    "github": "https://github.com/Anand-0037/agentic-micro-economy-os"
   }
 }

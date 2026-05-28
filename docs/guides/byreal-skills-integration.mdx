@@ -1,58 +1,45 @@
 ---
-title: "Execution adapter integration"
-description: "How AMEO signs and broadcasts trades on Mantle."
+title: "Byreal Skills CLI integration"
+description: "How AMEO invokes a Byreal Skill each cycle and surfaces it in replay."
 ---
 
-AMEO executes policy-approved plans through the **Mantle DEX adapter** — a Python module that quotes, builds calldata, and broadcasts swaps on [Mantle Sepolia](/glossary#mantle-sepolia).
+A **Byreal Skill** is a named, versioned execution capability that an autonomous agent can invoke to move from an approved plan to a signed on-chain transaction. Skills wrap calldata construction, signing context, and broadcast semantics so operators can audit *what* ran without reading Python internals.
 
-## Call path
-
-```
-graph.py (act node)
-  → MantleDexAdapter.swap / quote
-    → web3.py contract calls (Merchant Moe / FusionX routers)
-      → signed tx via [hot EOA](/glossary#hot-eoa) (`AGENT_PRIVATE_KEY`)
-```
-
-Primary implementation: `apps/worker/ameo_worker/adapters/mantle_dex.py`
-
-Configuration: `EXECUTION_ADAPTER=mantle_dex` in `.env`
-
-## Execution node in replay
-
-The Narrative Console labels this step **Execution · via [Byreal Skills CLI](/glossary#byreal-skills-cli)** — the agent-skill execution layer AMEO uses to sign and broadcast transactions (calldata construction, isolated signing context, explorer-verifiable settlement).
-
-## Swap one asset pair
-
-Required env for Sepolia smoke:
+AMEO uses one primary skill today: `mantle.swap.v1`, executed through the Byreal Skills CLI label in the Narrative Console. The signing path is unchanged — the worker still uses the configured hot EOA (`AGENT_PRIVATE_KEY`) to broadcast on Mantle Sepolia — but every cycle emits a structured log line before signing:
 
 ```
-MERCHANT_MOE_ROUTER=...
-FUSIONX_V2_ROUTER=0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033
-DEX_SLIPPAGE_BPS=100
+[INFO] byreal_skill_invocation skill=mantle.swap.v1 agent=<tokenId> target=<contract> action=<command>
 ```
 
-Run:
+That line appears in the worker telemetry stream and maps to the replay node **Execution · via Byreal Skills CLI**. The `/v1/skills` endpoint exposes the same registry for API and MCP clients.
 
-```bash
-cd apps/worker && uv run python ../../scripts/exec-smoke.py
-```
+## Per-cycle flow
 
-## Swap in your own adapter
+1. Observation and LLM planning produce an `ActionPlan`.
+2. The policy engine validates drawdown, asset whitelist, trade size, and gas guards.
+3. On approval, `MantleDexAdapter` logs `byreal_skill_invocation` and signs the transaction.
+4. A `DecisionLogged` event is written under the ERC-8004 identity contract.
 
-To replace the DEX backend:
+Primary implementation: `apps/worker/ameo_worker/adapters/mantle_dex.py`.
 
-1. Implement the same interface as `MantleDexAdapter` (quote + execute returning tx hash).
-2. Register the adapter in the `act` node of `graph.py`.
-3. Keep policy checks upstream — execution never bypasses `guardrail`.
+Configuration: `EXECUTION_ADAPTER=fusionx_v2` with FusionX router addresses on Mantle Sepolia.
+
+## Register a new skill (forward-looking)
+
+Third-party agents can add a skill descriptor to `/v1/skills` and implement a matching adapter module that honors the same quote → sign → broadcast interface. AMEO routes execution through the adapter registry in the worker `act` node; policy checks always run upstream, so a new skill cannot bypass guardrails.
+
+To integrate:
+
+1. Define a skill id (for example `mantle.lend.v1`) and executor label.
+2. Implement quote/execute methods compatible with `MantleDexAdapter`.
+3. Register the skill in the worker skills list and document it in `docs/guides/byreal-skills-integration.mdx`.
 
 ## Verify settlement
 
-After execution, replay shows:
+After execution, cross-check:
 
-- **Settled on Mantle Sepolia** — tx hash + explorer link
-- **[DecisionLogged event](/glossary#decisionlogged-event)** — on-chain decision fingerprint
+- Mantlescan transaction receipt for the cycle hash
+- `DecisionLogged` event on the agent identity contract
+- Optional: `/v1/verify/{txHash}` for a single JSON proof object
 
-Cross-check both on Mantlescan for the same `cycle_id`.
-
-See [Run locally](/guides/run-locally) for router addresses and [Architecture](/architecture) for the full loop.
+See [REST API v1](/api/v1) and [Run locally](/guides/run-locally) for router addresses.

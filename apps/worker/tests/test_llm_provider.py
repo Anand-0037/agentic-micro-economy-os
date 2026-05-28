@@ -28,7 +28,7 @@ def test_get_llm_provider_z_ai(monkeypatch) -> None:
         MANTLE_RPC_URL="https://rpc.example.com",
         LLM_PROVIDER="z_ai",
         Z_AI_API_KEY="key",
-        Z_AI_MODEL="glm-5-turbo",
+        Z_AI_MODEL="glm-4-plus",
     )
     provider = get_llm_provider(settings)
     assert isinstance(provider, ZaiProvider)

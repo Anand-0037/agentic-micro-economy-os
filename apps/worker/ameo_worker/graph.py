@@ -91,16 +91,17 @@ async def observe(state: AgentState) -> AgentState:
             errors.append("mantle_rpc_error")
             observation.observation_quality = 0.0
 
-    try:
-        market_context = await signals.get_market_context()
-        observation.macro_signals = market_context
-        observation.sources.append("bybit")
-        tickers = market_context.get("tickers", {})
-        for symbol, data in tickers.items():
-            if isinstance(data, dict) and "last_price" in data:
-                observation.prices[symbol] = data["last_price"]
-    except Exception:
-        errors.append("bybit_signal_error")
+    if settings.bybit_api_key and settings.bybit_api_secret:
+        try:
+            market_context = await signals.get_market_context()
+            observation.macro_signals = market_context
+            observation.sources.append("bybit")
+            tickers = market_context.get("tickers", {})
+            for symbol, data in tickers.items():
+                if isinstance(data, dict) and "last_price" in data:
+                    observation.prices[symbol] = data["last_price"]
+        except Exception:
+            errors.append("bybit_signal_error")
 
     if errors:
         observation.macro_signals = {**observation.macro_signals, "errors": errors}

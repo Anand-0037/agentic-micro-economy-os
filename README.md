@@ -1,15 +1,11 @@
-# AMEO — an AI agent that manages a crypto treasury, and proves every move on-chain
+# AMEO — Verifiable cognition for autonomous agents on Mantle
 
-AMEO is a software agent that runs 24/7. It watches a treasury wallet on Mantle, decides what to do with the funds, checks the decision against safety rules, executes the trade, and writes a tamper-proof record of why it acted to the blockchain.
+Trust infrastructure for autonomous finance — standard-setting cryptographic accountability for on-chain AI agents. AMEO observes treasury state, reasons under policy, executes on Mantle Sepolia, and returns explorer-verifiable proof for every decision.
 
-If you don't trust the agent, you don't have to. You can re-read every decision it ever made directly from Mantle and 0G Storage.
-
-## What it does, in four steps
-
-1. **Observe** — reads wallet balances, gas prices, and market signals from Mantle Sepolia.
-2. **Decide** — an LLM proposes an action (swap, hold, rebalance). The reasoning is hashed and stored on 0G Storage.
-3. **Check** — a policy engine rejects the action if it breaks any of 7 hard rules (max drawdown, asset whitelist, trade-size cap, gas budget, etc.).
-4. **Execute & log** — if the action passes, AMEO signs the transaction via the Byreal Skills CLI, settles it on Mantle, and writes a `DecisionLogged` event to its ERC-8004 identity contract.
+- **REST API** — `/v1/*` on the worker (`/v1/verify/{txHash}` for one-shot proof)
+- **TypeScript SDK** — `@ameo/sdk` npm package
+- **MCP server** — `@ameo/mcp` for Claude Desktop and Cursor
+- **Narrative Console** — live replay at [ameo.agiwithai.com](https://ameo.agiwithai.com)
 
 ## Confirm it works in under a minute
 
@@ -17,8 +13,21 @@ If you don't trust the agent, you don't have to. You can re-read every decision 
 | --- | --- | --- |
 | 1. The agent is a real contract | Verified Solidity on Mantlescan | [`0x8aC7…4197`](https://sepolia.mantlescan.xyz/address/0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197#code) |
 | 2. It has actually acted | `DecisionLogged` event for cycle `cyc_df716921` | [tx `0xdab1…ecf8`](https://sepolia.mantlescan.xyz/tx/0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8) |
-| 3. You can read its reasoning | 0G Storage receipt for the same cycle | indexer link in the console |
+| 3. API proof in one call | `/v1/verify/{txHash}` JSON | [worker `/v1/verify/0xdab1…ecf8`](https://agentic-micro-economy-os.onrender.com/v1/verify/0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8) |
 | 4. You can replay it visually | 9-node walkthrough in the live console | [ameo.agiwithai.com/app/replay?cycle=cyc_df716921](https://ameo.agiwithai.com/app/replay?cycle=cyc_df716921) |
+
+## What it does, in four steps
+
+1. **Observe** — reads wallet balances, gas prices, and market signals from Mantle Sepolia.
+2. **Decide** — an LLM proposes an action (swap, hold, rebalance). The reasoning is hashed and stored on 0G Storage.
+3. **Check** — a policy engine rejects the action if it breaks any of 7 hard rules (max drawdown, asset whitelist, trade-size cap, gas budget, etc.).
+4. **Execute & log** — if the action passes, AMEO invokes the Byreal Skills CLI path, settles on Mantle Sepolia, and writes a `DecisionLogged` event to its ERC-8004 identity contract.
+
+## Links
+
+- Live: https://ameo.agiwithai.com
+- Docs: https://docs.ameo.agiwithai.com
+- Repo: https://github.com/Anand-0037/agentic-micro-economy-os
 
 ## What's inside
 
@@ -46,6 +55,8 @@ cd apps/web && npm install && npm run dev
 ```
 
 Or one-shot with Docker: `docker compose up --build`. Console at `http://localhost:5173`, API at `http://localhost:8000`.
+
+Deployed worker API: https://agentic-micro-economy-os.onrender.com
 
 ## Safety choices, said plainly
 

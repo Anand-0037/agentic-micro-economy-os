@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { runtimeConfig, sampleSwapDescription, sampleThoughtProcess } from "../lib/runtimeConfig";
 
 export type CycleData = {
   observation?: {
@@ -43,35 +44,35 @@ const defaultSampleData: CycleData = {
   observation: {
     balances: { USDC: 850, MNT: 150, ETH: 0.05 },
     gasPriceWei: 15000000000,
-    rpcUrl: "https://rpc.sepolia.mantle.xyz",
+    rpcUrl: runtimeConfig.mantleRpcUrl,
     blockNumber: 12508931,
   },
   reasoning: {
-    llmProvider: "z.ai (Tencent Cloud Core)",
-    model: "deepseek-r1-distill-llama",
+    llmProvider: runtimeConfig.llmProviderLabel,
+    model: runtimeConfig.llmModel,
     rationaleHash: "0xe5c328db9453965b72186cb7d55f0b4d4cf38a0f9b3438ea2f57a3e78453efb2",
-    thoughtProcess: "MNT price dropped 4.2% relative to USDC in the last 24h. Portfolio holds 85% USDC. Allocating 150 USDC to acquire MNT via Merchant Moe is highly optimal for yield. Yield reserves indicate Moe APR is currently at 18.4%.",
+    thoughtProcess: sampleThoughtProcess(),
     zeroGHash: "0x00ff89cb51a2d6ccfb9bbebacf9638abb0033c92747b1e4bd5f89bbb66bae657268",
   },
   policy: {
     maxDrawdownLimit: "12% cap",
     drawdownPassed: true,
     whitelistPassed: true,
-    tradeSizeLimitUsd: 250,
+    tradeSizeLimitUsd: runtimeConfig.maxTradeUsd,
     planApproved: true,
   },
   execution: {
-    sender: "0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197",
-    targetContract: "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033 (Merchant Moe)",
-    actionDescription: "Swap 150.00 USDC for MNT via Merchant Moe Router",
-    signingKeyType: "Hot EOA Private Key (Isolated .env)",
+    sender: runtimeConfig.agentIdentityAddress,
+    targetContract: `${runtimeConfig.fusionxRouter} (Byreal Skills CLI)`,
+    actionDescription: sampleSwapDescription(),
+    signingKeyType: runtimeConfig.signingMethod,
     gasEstimateGwei: 28,
   },
   settlement: {
     txHash: "0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8",
     blockNumber: 12508933,
     verifiedOnChain: true,
-    explorerUrl: "https://sepolia.mantlescan.xyz/tx/0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8",
+    explorerUrl: `${runtimeConfig.explorerBase}/tx/0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8`,
   },
 };
 
@@ -220,7 +221,7 @@ export function CognitionTimeline({
             </span>
           </div>
           <div className="flex justify-between items-center border-b border-ink/10 pb-1.5">
-            <span className="text-ink/80">Max Trade Limit ($250):</span>
+            <span className="text-ink/80">Max Trade Limit (${runtimeConfig.maxTradeUsd}):</span>
             <span className="font-semibold text-ink">${data.policy.tradeSizeLimitUsd}</span>
           </div>
           <div className="mt-2 bg-[#dcfce7] border-2 border-[#166534] p-3 text-center">

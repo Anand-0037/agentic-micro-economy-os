@@ -3,23 +3,27 @@ from __future__ import annotations
 import asyncio
 import glob
 import json
+import logging
 import os
 import random
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 
 import sentry_sdk
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .adapters.mantle_dex import MantleDexAdapter
 from .clients.mantle import MantleClient
 from .agent import run_cycle
 from .bootstrap import enforce_production_llm_policy
 from .policy import serialize_default_policy
+from .routes.v1 import router as v1_router
 from .sentry_setup import init_sentry
 from .services.cycle_store import get_cycle, list_cycles
 from .services.decision_logs import fetch_decision_logs
@@ -29,7 +33,12 @@ from .services.memory_db import MemoryDB
 from .settings import get_settings
 from .state import get_status
 
-app = FastAPI(title="AMEO Worker", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="AMEO Worker", version="0.2.0")
+app.state.last_cycle_id = None
+app.state.app_start_monotonic = time.monotonic()
+app.state.scheduler = None
 
 _settings = get_settings()
 enforce_production_llm_policy(_settings)
@@ -37,11 +46,49 @@ init_sentry(_settings.sentry_dsn)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://ameo.agiwithai.com", "*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(v1_router)
+
+
+async def _scheduler_tick() -> None:
+    try:
+        result = await run_cycle()
+        cycle_id = result.get("cycle_id") or result.get("cycleId")
+        app.state.last_cycle_id = cycle_id
+        logger.info("[INFO] scheduler_tick cycle=%s", cycle_id)
+    except Exception as exc:
+        logger.exception("scheduler_tick failed: %s", exc)
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_scheduler_tick, "interval", minutes=20, id="ameo_cycle_tick")
+    scheduler.start()
+    app.state.scheduler = scheduler
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    scheduler = app.state.scheduler
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+
+
+@app.get("/")
+async def root() -> dict[str, Any]:
+    uptime = int(time.monotonic() - app.state.app_start_monotonic)
+    return {
+        "service": "ameo-worker",
+        "status": "ok",
+        "last_cycle_id": app.state.last_cycle_id,
+        "uptime_seconds": uptime,
+    }
 
 
 class Runner:
@@ -194,7 +241,10 @@ async def stop_runner() -> dict:
 
 @app.post("/run-cycle")
 async def run_cycle_endpoint() -> dict:
-    return await run_cycle()
+    result = await run_cycle()
+    cycle_id = result.get("cycle_id") or result.get("cycleId")
+    app.state.last_cycle_id = cycle_id
+    return result
 
 
 @app.get("/api/policy")

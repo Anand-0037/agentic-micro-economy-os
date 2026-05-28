@@ -10,8 +10,10 @@ import { captureSentryTestError } from "./SentryErrorFallback";
 import { InlineToast } from "./ui/InlineToast";
 import { StatusDot } from "./ui/StatusDot";
 
-const defaultRpc = import.meta.env.VITE_MANTLE_RPC_URL ?? "https://rpc.mantle.xyz";
-const defaultChain = import.meta.env.VITE_MANTLE_CHAIN_ID ?? "5000";
+import { runtimeConfig } from "../lib/runtimeConfig";
+
+const defaultRpc = runtimeConfig.mantleRpcUrl;
+const defaultChain = runtimeConfig.mantleChainId;
 const sentryEnv = import.meta.env.VITE_SENTRY_ENVIRONMENT ?? "unknown";
 const sentryConfigured = Boolean(import.meta.env.VITE_SENTRY_DSN);
 

@@ -131,10 +131,10 @@ async function main() {
     { role: "FusionX V2 router (docs testnet)", address: env("FUSIONX_V2_ROUTER") || "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033", probe: "router" },
     { role: "FusionX V2 factory (docs testnet)", address: env("FUSIONX_V2_FACTORY") || "0x272465431A6b86E3B9E5b9bD33f5D103a3F59eDb", probe: "factory" },
     { role: "FusionX USDC", address: env("FUSIONX_USDC") || "0xc92747b1e4Bd5F89BBB66bAE657268a5F4c4850C" },
-    { role: "FusionX WBIT", address: env("FUSIONX_WBIT") || "0x8734110e5e1dcF439c7F549db740E546fea82d66" },
+    { role: "FusionX WMNT (configure FUSIONX_WMNT)", address: env("FUSIONX_WMNT") || env("FUSIONX_WBIT") || env("MANTLE_WMNT_ADDRESS") || "" },
   ];
 
-  const optionalPool = env("MERCHANT_MOE_POOL_USDC_WMNT") || env("FUSIONX_POOL_USDC_WBIT");
+  const optionalPool = env("FUSIONX_POOL_USDC_WMNT") || env("FUSIONX_POOL_USDC_WBIT");
   if (optionalPool) {
     checks.push({ role: "DEX pool", address: optionalPool, probe: "pair" });
   }
@@ -168,15 +168,19 @@ async function main() {
         ok = factoryAddr !== "0x0000000000000000000000000000000000000000";
       } else if (check.probe === "factory") {
         const usdc = (env("FUSIONX_USDC") || "0xc92747b1e4Bd5F89BBB66bAE657268a5F4c4850C") as Address;
-        const wbit = (env("FUSIONX_WBIT") || "0x8734110e5e1dcF439c7F549db740E546fea82d66") as Address;
-        const pair = await client.readContract({
-          address,
-          abi: factoryAbi,
-          functionName: "getPair",
-          args: [usdc, wbit],
-        });
-        proof += `; getPair(USDC,WBIT)=${pair}`;
-        ok = pair !== "0x0000000000000000000000000000000000000000";
+        const wmnt = (env("FUSIONX_WMNT") || env("FUSIONX_WBIT") || env("MANTLE_WMNT_ADDRESS") || "") as Address;
+        if (!wmnt) {
+          proof += "; getPair skipped (FUSIONX_WMNT not set)";
+        } else {
+          const pair = await client.readContract({
+            address,
+            abi: factoryAbi,
+            functionName: "getPair",
+            args: [usdc, wmnt],
+          });
+          proof += `; getPair(USDC,WMNT)=${pair}`;
+          ok = pair !== "0x0000000000000000000000000000000000000000";
+        }
       } else if (check.probe === "pair") {
         const [t0, t1] = await Promise.all([
           client.readContract({ address, abi: pairAbi, functionName: "token0" }),

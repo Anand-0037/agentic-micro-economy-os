@@ -1,6 +1,27 @@
 {
   "name": "@ameo/sdk",
   "version": "0.1.0",
+  "description": "TypeScript client for the AMEO verifiable agent API",
+  "license": "MIT",
+  "repository": "github:Anand-0037/agentic-micro-economy-os",
   "type": "module",
-  "private": true
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0"
+  }
 }

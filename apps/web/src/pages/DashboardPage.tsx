@@ -14,6 +14,12 @@ import { useSystemStatus } from "../hooks/useSystemStatus";
 import { formatBalance } from "../lib/dashboardFormat";
 import { isTreasuryEmpty, resolveBlockState } from "../lib/blockState";
 import { humanizePolicy, type PolicySnapshot } from "../lib/policyHumanize";
+import {
+  executionTargetLabel,
+  runtimeConfig,
+  sampleSwapDescription,
+  sampleThoughtProcess,
+} from "../lib/runtimeConfig";
 
 export function DashboardPage() {
   const controlRef = useRef<HTMLDivElement>(null);
@@ -78,11 +84,10 @@ export function DashboardPage() {
   const tickersRaw = (macroSignals as Record<string, unknown>).tickers ?? {};
   const fundingRaw = (macroSignals as Record<string, unknown>).funding ?? {};
 
-  const explorerBase =
-    import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://explorer.mantle.xyz";
-  const agentTokenId = import.meta.env.VITE_AGENT_TOKEN_ID ?? "0";
-  const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
-  const treasuryEoa = import.meta.env.VITE_TREASURY_EOA;
+  const explorerBase = runtimeConfig.explorerBase;
+  const agentTokenId = runtimeConfig.agentTokenId;
+  const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
+  const treasuryEoa = runtimeConfig.treasuryEoa;
   const identityExplorerUrl = agentIdentityAddress
     ? `${explorerBase}/address/${agentIdentityAddress}`
     : undefined;
@@ -177,15 +182,17 @@ export function DashboardPage() {
     const observation = obs ? {
       balances: Object.entries(obs.balances ?? {}).reduce((acc, [k, v]) => ({ ...acc, [k]: Number(v ?? 0) }), {}),
       gasPriceWei: Number(obs.gas_price_wei ?? 15000000000),
-      rpcUrl: "https://rpc.sepolia.mantle.xyz",
+      rpcUrl: runtimeConfig.mantleRpcUrl,
       blockNumber: 12508931,
     } : undefined;
 
     const reasoning = log ? {
-      llmProvider: "z.ai (Tencent Cloud Core)",
-      model: "deepseek-r1-distill-llama",
+      llmProvider: runtimeConfig.llmProviderLabel,
+      model: runtimeConfig.llmModel,
       rationaleHash: log.rationaleHash || "0xe5c328db...",
-      thoughtProcess: `Executing calculated path: ${log.actionType || "Rebalancing portfolio reserves"}. Allocating assets securely under whitelisted policies.`,
+      thoughtProcess: log.actionType
+        ? `Executing calculated path: ${log.actionType}. ${sampleThoughtProcess()}`
+        : sampleThoughtProcess(),
       zeroGHash: log.dataHash || "0x00ff89cb...",
     } : undefined;
 
@@ -193,15 +200,17 @@ export function DashboardPage() {
       maxDrawdownLimit: "12% cap",
       drawdownPassed: true,
       whitelistPassed: true,
-      tradeSizeLimitUsd: 250,
+      tradeSizeLimitUsd: runtimeConfig.maxTradeUsd,
       planApproved: true,
     };
 
     const execution = {
-      sender: treasuryEoa || "0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197",
-      targetContract: "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033 (Merchant Moe Router)",
-      actionDescription: log?.actionType ? `Swap using Byreal Skills CLI: ${log.actionType}` : "Swapping assets via Merchant Moe Router",
-      signingKeyType: "Hot EOA Private Key (Isolated .env)",
+      sender: treasuryEoa || runtimeConfig.agentIdentityAddress,
+      targetContract: executionTargetLabel(),
+      actionDescription: log?.actionType
+        ? `${runtimeConfig.executionAdapterLabel}: ${log.actionType}`
+        : sampleSwapDescription(),
+      signingKeyType: runtimeConfig.signingMethod,
       gasEstimateGwei: 28,
     };
 

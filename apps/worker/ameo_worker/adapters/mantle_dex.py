@@ -514,17 +514,24 @@ class MantleDexAdapter:
                 return self._w3.to_checksum_address(addr), label
         return "", ""
 
+    def _resolve_wmnt_address(self) -> str:
+        configured = self._settings.mantle_wmnt_address or self._settings.fusionx_wmnt
+        if configured and Web3.is_address(configured):
+            return self._w3.to_checksum_address(configured)
+        if self._settings.mantle_chain_id == 5003:
+            return ""
+        return _DEFAULT_WMNT_MAINNET
+
     def _resolve_token_address(self, symbol: str) -> Optional[str]:
         sym = symbol.upper()
         if sym in ("MNT", "NATIVE"):
             return None
 
         mapping = {
-            "WMNT": self._settings.mantle_wmnt_address or _DEFAULT_WMNT_MAINNET,
+            "WMNT": self._resolve_wmnt_address(),
             "USDC": self._settings.mantle_usdc_address
             or self._settings.fusionx_usdc
             or _DEFAULT_USDC_MAINNET,
-            "WBIT": self._settings.fusionx_wbit,
             "WETH": self._settings.mantle_weth_address,
         }
         addr = mapping.get(sym, "")
@@ -542,7 +549,7 @@ class MantleDexAdapter:
         return [start, end]
 
     def _token_decimals(self, symbol: str) -> int:
-        if symbol in ("MNT", "NATIVE", "WMNT", "WETH", "WBIT"):
+        if symbol in ("MNT", "NATIVE", "WMNT", "WETH"):
             return 18
         if symbol == "USDC":
             return 6
@@ -624,6 +631,14 @@ class MantleDexAdapter:
             )
 
         try:
+            target = tx.get("to", "")
+            agent_id = self._settings.agent_token_id
+            logger.info(
+                "[INFO] byreal_skill_invocation skill=mantle.swap.v1 agent=%s target=%s action=%s",
+                agent_id,
+                target,
+                command,
+            )
             if "gas" not in tx:
                 tx["gas"] = self._w3.eth.estimate_gas(tx)
             signed = self._w3.eth.account.sign_transaction(

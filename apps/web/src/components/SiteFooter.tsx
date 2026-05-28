@@ -1,14 +1,12 @@
 import { useDemoMode } from "../context/DemoModeContext";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
-const explorerBase =
-  import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://explorer.mantle.xyz";
-const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
-const githubUrl = import.meta.env.VITE_GITHUB_URL as string | undefined;
+const githubUrl = runtimeConfig.githubUrl;
 
 export function SiteFooter() {
   const { demoMode } = useDemoMode();
-  const identityUrl = agentIdentityAddress
-    ? `${explorerBase}/address/${agentIdentityAddress}`
+  const identityUrl = runtimeConfig.agentIdentityAddress
+    ? `${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}`
     : undefined;
 
   return (
@@ -23,7 +21,7 @@ export function SiteFooter() {
               <li>
                 <a
                   className="text-accent underline-offset-4 hover:underline"
-                  href={explorerBase}
+                  href={runtimeConfig.explorerBase}
                   rel="noreferrer"
                   target="_blank"
                 >

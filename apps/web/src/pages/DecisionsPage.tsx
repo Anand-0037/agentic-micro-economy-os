@@ -1,14 +1,14 @@
 import { DecisionsTable } from "../components/DecisionsTable";
 import { useAmeo } from "../context/AmeoDataContext";
 import { useSystemStatus } from "../hooks/useSystemStatus";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 export function DecisionsPage() {
   const { logs, logsLoading, logsError, logsLastSuccessAt, refreshLogs } = useAmeo();
   const { hasEverRun } = useSystemStatus();
 
-  const explorerBase =
-    import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://explorer.mantle.xyz";
-  const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
+  const explorerBase = runtimeConfig.explorerBase;
+  const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
   const identityExplorerUrl = agentIdentityAddress
     ? `${explorerBase}/address/${agentIdentityAddress}`
     : undefined;

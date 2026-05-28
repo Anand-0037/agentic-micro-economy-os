@@ -1,0 +1,26 @@
+{
+  "name": "@ameo/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AMEO verifiable agent operations",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ameo-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts src/tools.ts --format esm --dts",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@ameo/sdk": "file:../sdk",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.6.0"
+  }
+}

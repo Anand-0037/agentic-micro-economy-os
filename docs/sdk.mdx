@@ -1,0 +1,38 @@
+---
+title: "TypeScript SDK"
+description: "Install and use @ameo/sdk against the public REST API."
+---
+
+## Install
+
+```bash
+npm install @ameo/sdk
+```
+
+## Quickstart
+
+```ts
+import { AMEO } from "@ameo/sdk";
+
+const ameo = new AMEO({
+  baseUrl: "https://agentic-micro-economy-os.onrender.com",
+});
+
+const verified = await ameo.verify(
+  "0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8",
+);
+
+console.log(verified.decisionStatus, verified.mantlescanUrl);
+```
+
+## Surface
+
+- `ameo.agents.register()` / `ameo.agents.get(tokenId)`
+- `ameo.decisions.create(input)` / `ameo.decisions.list()` / `ameo.decisions.get(id)`
+- `ameo.verify(txHash)`
+- `ameo.policies.list()`
+- `ameo.skills.list()`
+
+Package source: `packages/sdk` in the GitHub repository.
+
+See also the [REST API v1 reference](/api/v1).

@@ -273,7 +273,7 @@ def _build_detail(
     tx_hash = summary.tx_hash
     execution: Dict[str, Any] = {
         "ok": execution_event.data.get("ok") if execution_event else None,
-        "target_contract": settings.merchant_moe_router or settings.fusionx_v2_router,
+        "target_contract": settings.fusionx_v2_router or settings.merchant_moe_router,
         "method": plan_event.data.get("action_type") if plan_event else None,
         "protocol": plan_event.data.get("protocol") if plan_event else None,
         "slippage_bps": settings.dex_slippage_bps,

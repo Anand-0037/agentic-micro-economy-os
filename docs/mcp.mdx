@@ -1,0 +1,42 @@
+---
+title: "MCP server"
+description: "Use @ameo/mcp from Claude Desktop, Cursor, or other MCP hosts."
+---
+
+## Install
+
+```bash
+npm install @ameo/mcp @ameo/sdk
+```
+
+## Claude Desktop configuration
+
+```json
+{
+  "mcpServers": {
+    "ameo": {
+      "command": "npx",
+      "args": ["-y", "@ameo/mcp"],
+      "env": {
+        "AMEO_BASE_URL": "https://agentic-micro-economy-os.onrender.com"
+      }
+    }
+  }
+}
+```
+
+## Tools
+
+| Tool | Purpose |
+| --- | --- |
+| `register_agent` | Return the ERC-8004 agent identity |
+| `submit_decision` | Run a full verifiable cycle |
+| `verify_decision` | Verify a Mantle settlement tx |
+| `list_policies` | List the seven active policy predicates |
+| `list_skills` | List registered Byreal Skills |
+
+## First call
+
+Ask the host to run `verify_decision` with tx hash `0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8`.
+
+Transport: stdio only in v0. SSE/HTTP transport is planned post-launch.

@@ -2,7 +2,6 @@
 agent-context/
 hack/
 marketing/
-submission/
 .playwright-mcp/
 
 # secrets & local state
@@ -35,3 +34,4 @@ packages/contracts/standard-input.json
 
 # binaries
 bin/0g-storage-client
+packages/*/dist/
