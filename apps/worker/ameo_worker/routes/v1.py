@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..agent import run_cycle
 from ..policy import serialize_default_policy
-from ..services.cycle_store import get_cycle, list_cycles
+from ..services.cycle_store import cycle_metadata, get_cycle, list_cycles
 from ..services.decision_logs import fetch_decision_logs
 from ..settings import get_settings
 
@@ -186,6 +186,23 @@ async def create_decision(body: DecisionInput, request: Request) -> dict[str, An
     }
 
 
+@router.post("/cycles/run")
+async def run_cycle_v1(request: Request) -> dict[str, Any]:
+    """Run one full observe → plan → policy → execute cycle."""
+    try:
+        result = await run_cycle()
+    except Exception as exc:
+        return _error_response(500, "cycle_failed", str(exc))
+
+    cycle_id = result.get("cycle_id") or "unknown"
+    request.app.state.last_cycle_id = cycle_id
+    return {
+        "cycleId": cycle_id,
+        "status": "completed",
+        "byrealSkillResult": result.get("byreal_skill_result"),
+    }
+
+
 @router.get("/decisions")
 async def list_decisions(
     agentId: Optional[str] = Query(default=None),
@@ -202,6 +219,7 @@ async def list_decisions(
                 "startedAt": cycle.started_at.isoformat() if cycle.started_at else None,
                 "txHash": cycle.tx_hash,
                 "agentId": agentId or get_settings().agent_identity_address,
+                "metadata": cycle_metadata(cycle.cycle_id),
             }
         )
     return {"items": items, "total": total, "limit": limit, "offset": offset}

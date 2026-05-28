@@ -28,7 +28,7 @@ async def run_cycle() -> Dict[str, Any]:
         graph = build_graph()
         result = await graph.ainvoke({"cycle_id": cycle_id})
         log_struct("cycle_end", cycle_id=cycle_id, correlation_id=cycle_id, ok=True)
-        return result
+        return {**result, "cycle_id": cycle_id}
     except Exception as exc:
         logger.error("Cycle %s failed: %s", cycle_id, exc)
         log_struct(

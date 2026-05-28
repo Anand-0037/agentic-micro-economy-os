@@ -21,6 +21,7 @@ from .services.memory_db import MemoryDB
 from .services.onchain_logger import OnchainLogger
 from .services.zero_g_storage import ZeroGStorageService
 from .services.guardrail_service import GuardrailService
+from .services.byreal_skill import ByrealSkillError, invoke_skill
 from .services.event_store import EventStore, EventType
 from .logutil import log_struct
 
@@ -34,6 +35,7 @@ class AgentState(TypedDict, total=False):
     log: Dict[str, Any]
     retry_count: int
     cycle_id: str
+    byreal_skill_result: Dict[str, Any] | None
 
 
 def _memory() -> MemoryDB:
@@ -186,9 +188,56 @@ async def reason(state: AgentState) -> AgentState:
 
 
 def plan(state: AgentState) -> AgentState:
-    if "plan" in state:
-        return state
-    raise RuntimeError("missing_plan_after_reason")
+    action_plan = state.get("plan")
+    if not action_plan:
+        raise RuntimeError("missing_plan_after_reason")
+
+    cycle_id = state.get("cycle_id", "unknown")
+    byreal_skill_result: Dict[str, Any] | None = None
+
+    if action_plan.action_type != "no_op":
+        amount_usd = float(
+            action_plan.size_usd
+            if action_plan.size_usd is not None
+            else action_plan.action_params.get("amount")
+            or 0
+        )
+        params = {
+            "from_token": action_plan.asset_in or "MNT",
+            "to_token": action_plan.asset_out or "WMNT",
+            "amount_usd": amount_usd,
+        }
+        try:
+            skill_result = invoke_skill("mantle.swap.v1", params)
+            byreal_skill_result = {
+                "stdout": skill_result.stdout,
+                "stderr": skill_result.stderr,
+                "exit_code": skill_result.exit_code,
+                "latency_ms": skill_result.latency_ms,
+                "dry_run": skill_result.dry_run,
+            }
+        except ByrealSkillError as exc:
+            log_struct(
+                "byreal_skill_error",
+                cycle_id=cycle_id,
+                error=str(exc),
+                stderr=exc.stderr,
+                exit_code=exc.exit_code,
+            )
+            byreal_skill_result = None
+
+        EventStore().emit(
+            cycle_id=cycle_id,
+            event_type=EventType.BYREAL_SKILL_INVOKED,
+            data={
+                "skill": "mantle.swap.v1",
+                "byreal_skill_result": byreal_skill_result,
+                "params": params,
+            },
+            correlation_id=action_plan.correlation_id,
+        )
+
+    return {"plan": action_plan, "byreal_skill_result": byreal_skill_result, **state}
 
 
 def delta_neutral(state: AgentState) -> AgentState:
@@ -347,6 +396,7 @@ def act(state: AgentState) -> AgentState:
             "ok": execution.ok,
             "tx_hash": execution.tx_hash,
             "error": execution.error,
+            "command": execution.command,
         },
         correlation_id=state["plan"].correlation_id,
     )
@@ -422,6 +472,7 @@ def log(state: AgentState) -> AgentState:
                 "execution": execution.model_dump(mode="json"),
                 "violations": state.get("violations", []),
                 "events": [event.model_dump(mode="json") for event in events],
+                "byreal_skill_result": state.get("byreal_skill_result"),
             }
             zero_g_service = ZeroGStorageService(get_settings())
             zero_g_data_hash = zero_g_service.upload_trace(trace_payload)

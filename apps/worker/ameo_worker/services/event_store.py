@@ -16,6 +16,7 @@ class EventType(str, Enum):
     CYCLE_COMPLETED = "cycle_completed"
     LLM_PROVIDER_FAILED = "llm_provider_failed"
     LLM_PROVIDER_SUCCEEDED = "llm_provider_succeeded"
+    BYREAL_SKILL_INVOKED = "byreal_skill_invoked"
 
 class AgentEvent(BaseModel):
     event_id: str

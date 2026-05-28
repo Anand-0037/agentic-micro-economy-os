@@ -321,6 +321,21 @@ def _build_detail(
     )
 
 
+def _byreal_skill_result_for_cycle(events: List[AgentEvent]) -> Any:
+    matched = [event for event in events if event.event_type == EventType.BYREAL_SKILL_INVOKED]
+    if not matched:
+        return None
+    return matched[-1].data.get("byreal_skill_result")
+
+
+def cycle_metadata(cycle_id: str) -> Dict[str, Any]:
+    settings = get_settings()
+    log_dir = _events_dir(settings)
+    grouped = _group_by_cycle(_load_all_events(log_dir))
+    events = grouped.get(cycle_id, [])
+    return {"byreal_skill_result": _byreal_skill_result_for_cycle(events)}
+
+
 def list_cycles(limit: int = 50, offset: int = 0) -> tuple[List[CycleSummary], int]:
     settings = get_settings()
     log_dir = _events_dir(settings)
