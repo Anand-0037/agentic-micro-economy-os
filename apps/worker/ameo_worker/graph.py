@@ -19,7 +19,7 @@ from .services.llm_provider import LlmProviderError
 from .services.rules_planner import build_rules_action_plan
 from .services.memory_db import MemoryDB
 from .services.onchain_logger import OnchainLogger
-from .services.zero_g_storage import ZeroGStorageService
+from .services.zero_g_storage import ZeroGAnchorResult, ZeroGStorageService
 from .services.guardrail_service import GuardrailService
 from .services.byreal_skill import ByrealSkillError, invoke_skill
 from .services.event_store import EventStore, EventType
@@ -36,6 +36,7 @@ class AgentState(TypedDict, total=False):
     retry_count: int
     cycle_id: str
     byreal_skill_result: Dict[str, Any] | None
+    zero_g: Dict[str, Any] | None
 
 
 def _memory() -> MemoryDB:
@@ -449,6 +450,8 @@ def log(state: AgentState) -> AgentState:
     observation = state.get("observation")
     cycle_id = state.get("cycle_id", "unknown")
     zero_g_data_hash: str | None = None
+    zero_g_state: Dict[str, Any] | None = None
+    anchor = ZeroGAnchorResult(root_hash=None, indexer_url=None, anchored=False)
     pnl_value = 0.0
 
     if plan and observation and execution:
@@ -462,28 +465,45 @@ def log(state: AgentState) -> AgentState:
                 f"{plan.action_type} produced negative pnl {pnl_value}"
             )
 
-        try:
-            events = EventStore().get_cycle_events(cycle_id)
-            trace_payload = {
-                "namespace": get_settings().zero_g_namespace or "ameo",
-                "cycle_id": cycle_id,
-                "observation": observation.model_dump(mode="json"),
-                "plan": plan.model_dump(mode="json"),
-                "execution": execution.model_dump(mode="json"),
-                "violations": state.get("violations", []),
-                "events": [event.model_dump(mode="json") for event in events],
-                "byreal_skill_result": state.get("byreal_skill_result"),
+        events = EventStore().get_cycle_events(cycle_id)
+        trace_payload = {
+            "namespace": get_settings().zero_g_namespace or "ameo",
+            "cycle_id": cycle_id,
+            "observation": observation.model_dump(mode="json"),
+            "plan": plan.model_dump(mode="json"),
+            "execution": execution.model_dump(mode="json"),
+            "violations": state.get("violations", []),
+            "events": [event.model_dump(mode="json") for event in events],
+            "byreal_skill_result": state.get("byreal_skill_result"),
+        }
+        zero_g_service = ZeroGStorageService(get_settings())
+        anchor = zero_g_service.anchor_trace(trace_payload, cycle_id=cycle_id)
+        if anchor.anchored and anchor.root_hash:
+            zero_g_data_hash = anchor.root_hash
+            zero_g_state = {
+                "root_hash": anchor.root_hash,
+                "indexer_url": anchor.indexer_url,
             }
-            zero_g_service = ZeroGStorageService(get_settings())
-            zero_g_data_hash = zero_g_service.upload_trace(trace_payload)
-            if zero_g_data_hash:
-                log_payload["zero_g"] = {"data_hash": zero_g_data_hash}
-            elif zero_g_service.is_configured():
-                log_payload["zero_g"] = {"status": "failed", "reason": "no_root_hash"}
+            log_payload["zero_g"] = zero_g_state
+            EventStore().emit(
+                cycle_id=cycle_id,
+                event_type=EventType.ZERO_G_ANCHOR_SUCCEEDED,
+                data={
+                    "root_hash": anchor.root_hash,
+                    "indexer_url": anchor.indexer_url,
+                },
+            )
+        else:
+            zero_g_state = None
+            if zero_g_service.is_configured():
+                log_payload["zero_g"] = {"status": "failed", "reason": "anchor_failed"}
             else:
                 log_payload["zero_g"] = {"status": "skipped", "reason": "not_configured"}
-        except Exception as exc:
-            log_payload["zero_g_error"] = str(exc)
+            EventStore().emit(
+                cycle_id=cycle_id,
+                event_type=EventType.ZERO_G_ANCHOR_FAILED,
+                data={"reason": log_payload["zero_g"]},
+            )
 
     if (
         execution
@@ -494,17 +514,10 @@ def log(state: AgentState) -> AgentState:
         settings = get_settings()
         if settings.agent_identity_address and settings.agent_token_id >= 0:
             rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
-            if execution.ok:
-                exec_note = execution.command
-                if execution.tx_hash:
-                    exec_note = f"{execution.command}:tx={execution.tx_hash}"
+            if anchor.anchored and anchor.root_hash:
+                metadata_uri = anchor.root_hash
             else:
-                exec_note = f"{execution.command}:failed:{execution.error or 'unknown'}"
-            metadata_uri = (
-                plan.metadata_uri
-                or plan.action_params.get("metadata_uri")
-                or f"{rationale_text} | exec={exec_note}"
-            )
+                metadata_uri = ""
             try:
                 logger = OnchainLogger(settings)
                 pnl1e18 = int(round(pnl_value * 1e18))
@@ -532,7 +545,7 @@ def log(state: AgentState) -> AgentState:
         },
     )
 
-    return {"log": log_payload, **state}
+    return {"log": log_payload, "zero_g": zero_g_state, **state}
 
 
 def build_graph() -> Any:

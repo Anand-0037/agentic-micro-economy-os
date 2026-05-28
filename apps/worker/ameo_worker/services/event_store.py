@@ -17,6 +17,8 @@ class EventType(str, Enum):
     LLM_PROVIDER_FAILED = "llm_provider_failed"
     LLM_PROVIDER_SUCCEEDED = "llm_provider_succeeded"
     BYREAL_SKILL_INVOKED = "byreal_skill_invoked"
+    ZERO_G_ANCHOR_SUCCEEDED = "zero_g_anchor_succeeded"
+    ZERO_G_ANCHOR_FAILED = "zero_g_anchor_failed"
 
 class AgentEvent(BaseModel):
     event_id: str
