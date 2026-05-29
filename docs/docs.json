@@ -38,8 +38,11 @@
       {
         "group": "API reference",
         "pages": [
+          "api/v1",
           "api/worker-api",
-          "api/contracts"
+          "api/contracts",
+          "sdk",
+          "mcp"
         ]
       },
       {
@@ -54,7 +57,8 @@
       {
         "group": "About",
         "pages": [
-          "roadmap"
+          "roadmap",
+          "changelog"
         ]
       }
     ]
