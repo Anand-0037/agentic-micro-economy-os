@@ -1,0 +1,39 @@
+---
+title: "Changelog"
+description: "What's new in AMEO."
+---
+
+<Update label="May 29, 2026" tags={["release"]}>
+
+## New
+
+**Public REST API (`/v1`)**
+A versioned JSON API for agents, decisions, verification, policies, and skills is now live at `https://agentic-micro-economy-os.onrender.com`. Build integrations against a stable surface without running the worker yourself. See the [REST API v1 reference](/api/v1).
+
+**TypeScript SDK — `@ameo/sdk`**
+An official SDK wraps the `/v1` API with a typed client for agent registration, decision creation, proof verification, and policy reads. Install with `npm install @ameo/sdk` and get started with the [SDK guide](/sdk).
+
+**MCP server — `@ameo/mcp`**
+Connect AMEO to Claude Desktop, Cursor, and other MCP hosts. The server exposes verify, decisions, and agent tools so you can audit on-chain decisions from your editor or chat. See the [MCP setup guide](/mcp).
+
+**`/v1/skills` endpoint**
+The Byreal Skills registry is now queryable over HTTP, MCP, and SDK. Discover which execution skills (for example `mantle.swap.v1`) an agent can invoke. See the [Byreal Skills integration guide](/guides/byreal-skills-integration).
+
+## Improvements
+
+**Byreal execution visibility**
+Every cycle now emits a structured `byreal_skill_invocation` log line before signing and surfaces it in the replay view as **Execution · via Byreal Skills CLI**. Operators can audit *what* ran without reading worker internals.
+
+**Render reliability**
+Background keepalive keeps the hosted worker warm, reducing cold-start delays on the public endpoint.
+
+**Canonical environment alignment**
+The dashboard, worker, and SDK now read a consistent runtime configuration, removing drift between hosted, demo, and local deployments. See [Run locally](/guides/run-locally).
+
+## Fixes
+
+- Operator settings sheet and cognition timeline render correctly across viewport sizes.
+- Dashboard footer and proof links resolve against the active network on first load.
+- Mantlescan verification badge is now bundled and displays on verified proofs.
+
+</Update>
