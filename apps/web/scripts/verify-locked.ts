@@ -23,10 +23,10 @@ const mantleSepolia = defineChain({
       http: [
         process.env.MANTLE_SEPOLIA_RPC ??
           process.env.VITE_MANTLE_RPC_URL ??
-          "https://mantle-sepolia.drpc.org",
+          "https://rpc.sepolia.mantle.xyz",
         process.env.MANTLE_RPC_URL_FALLBACK ??
           process.env.VITE_MANTLE_RPC_URL_FALLBACK ??
-          "https://rpc.sepolia.mantle.xyz",
+          "https://rpc.ankr.com/mantle_sepolia",
       ],
     },
   },

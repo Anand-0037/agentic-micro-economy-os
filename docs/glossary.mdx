@@ -27,9 +27,9 @@ A boolean rule enforced before any transaction is signed. AMEO ships five: `draw
 
 Ethereum L2 testnet (chain id `5003`) where AMEO settles all reference transactions during this phase. Mainnet migration is in [roadmap](/roadmap).
 
-## Byreal Skills CLI
+## Byreal Skills CLI (telemetry / quote surface)
 
-The agent-skill execution layer AMEO calls from the Execution node to sign and broadcast on-chain transactions. AMEO's worker invokes Byreal Skills as the canonical signing path; the skill identifier and version are recorded in every cycle's metadata.
+Byreal provides price quote and skill signals. AMEO uses the Byreal quote surface for market context in the planner. All actual on-chain settlement is performed by the direct MantleDexAdapter (FusionX V2 router). See the integration guide for details.
 
 ## Hot EOA
 

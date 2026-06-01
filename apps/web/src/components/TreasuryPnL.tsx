@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 import type { HistoryPoint } from "../hooks/useAmeo";
 import type { BlockState } from "../lib/blockState";
@@ -26,6 +26,17 @@ function displayAssets(balances: Record<string, number>) {
     { symbol: "WMNT", amount: balances.WMNT ?? balances.MNT },
   ];
   return rows.filter((row) => typeof row.amount === "number" && row.amount > 0);
+}
+
+function allocationRows(balances: Record<string, number>) {
+  const assets = displayAssets(balances);
+  const total = assets.reduce((sum, row) => sum + (row.amount ?? 0), 0);
+  if (total <= 0) return [];
+  return assets.map((row) => ({
+    symbol: row.symbol,
+    amount: row.amount ?? 0,
+    pct: ((row.amount ?? 0) / total) * 100,
+  }));
 }
 
 function TreasuryEmptyCard({
@@ -74,21 +85,37 @@ export function TreasuryPnL({
   hidePnlSection = false,
 }: TreasuryPnLProps) {
   const fundedAssets = displayAssets(balances);
+  const allocations = allocationRows(balances);
+  const heroTotal = allocations.reduce((sum, row) => sum + row.amount, 0);
   const showPnl = shouldRenderPnlCard(cyclesCompleted);
   const meaningfulPnl = hasMeaningfulPnlHistory(cyclesCompleted, pnlHistory);
   const latestPnl = meaningfulPnl ? pnlHistory[pnlHistory.length - 1]?.pnl : null;
 
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number>();
   const copyAddress = async () => {
     if (!treasuryEoa) return;
     try {
       await navigator.clipboard.writeText(treasuryEoa);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
     }
   };
+
+  // Best practice: Also clear on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <section
@@ -96,9 +123,23 @@ export function TreasuryPnL({
       aria-labelledby="treasury-heading"
     >
       <div className="soft-card p-4 sm:p-5">
-        <h2 id="treasury-heading" className="font-display text-lg font-semibold text-ink">
-          Treasury
-        </h2>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Treasury EOA</p>
+            <h2 id="treasury-heading" className="mt-1 font-display text-lg font-semibold text-ink">
+              {treasuryEoa ? shortAddress(treasuryEoa) : "Treasury"}
+            </h2>
+          </div>
+          {heroTotal > 0 ? (
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">On-chain balance</p>
+              <p className="mt-1 font-display text-3xl font-semibold tabular-nums text-ink">
+                {formatBalance(heroTotal, 2)}
+              </p>
+              <p className="mt-1 text-xs text-muted">USDC + WMNT (testnet units)</p>
+            </div>
+          ) : null}
+        </div>
 
         {treasuryBlock.state === "loading" ? (
           <div className="mt-4 space-y-3">
@@ -127,7 +168,30 @@ export function TreasuryPnL({
             copied={copied}
           />
         ) : (
-          <ul className="mt-4 space-y-2 text-sm">
+          <>
+            {allocations.length > 0 ? (
+              <div className="mt-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Allocation</p>
+                <div className="mt-2 flex h-3 overflow-hidden rounded-full border border-border bg-neutral-100">
+                  {allocations.map((row, index) => (
+                    <div
+                      key={row.symbol}
+                      className={index === 0 ? "bg-accent" : "bg-ok"}
+                      style={{ width: `${row.pct}%` }}
+                      title={`${row.symbol} ${row.pct.toFixed(1)}%`}
+                    />
+                  ))}
+                </div>
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                  {allocations.map((row) => (
+                    <li key={row.symbol}>
+                      {row.symbol} {row.pct.toFixed(1)}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <ul className="mt-4 space-y-2 text-sm">
             {fundedAssets.map(({ symbol, amount }) => (
               <li
                 key={symbol}
@@ -146,6 +210,7 @@ export function TreasuryPnL({
               </li>
             ) : null}
           </ul>
+          </>
         )}
       </div>
 

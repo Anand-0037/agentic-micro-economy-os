@@ -634,7 +634,7 @@ class MantleDexAdapter:
             target = tx.get("to", "")
             agent_id = self._settings.agent_token_id
             logger.info(
-                "[INFO] byreal_skill_invocation skill=mantle.swap.v1 agent=%s target=%s action=%s",
+                "[INFO] byreal_quote_fetched skill=mantle.swap.v1 agent=%s target=%s action=%s",
                 agent_id,
                 target,
                 command,

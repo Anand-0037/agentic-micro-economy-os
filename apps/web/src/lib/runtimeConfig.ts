@@ -16,7 +16,7 @@ export const runtimeConfig = {
   agentEoa: env.VITE_AGENT_EOA ?? "0xFB76C4B6912bCF358752Fb4b4b15B959EfaDD915",
   treasuryEoa: env.VITE_TREASURY_EOA ?? "",
   executionAdapter: env.VITE_EXECUTION_ADAPTER ?? "fusionx_v2",
-  executionAdapterLabel: env.VITE_EXECUTION_ADAPTER_LABEL ?? "Byreal Skills CLI",
+  executionAdapterLabel: env.VITE_EXECUTION_ADAPTER_LABEL ?? "Mantle DEX (Merchant Moe/FusionX)",
   fusionxRouter:
     env.VITE_FUSIONX_V2_ROUTER ?? "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033",
   llmProviderLabel: env.VITE_LLM_PROVIDER_LABEL ?? "z.ai",
@@ -30,7 +30,28 @@ export const runtimeConfig = {
     env.VITE_0G_INDEXER_URL ?? "https://indexer-storage-testnet-turbo.0g.ai",
   githubUrl: env.VITE_GITHUB_URL ?? "",
   docsUrl: env.VITE_DOCS_URL ?? "https://docs.ameo.agiwithai.com",
+  workerUrl: env.VITE_WORKER_URL ?? "https://agentic-micro-economy-os.onrender.com",
 } as const;
+
+const CRITICAL_ENV_KEYS = [
+  "VITE_AGENT_IDENTITY_ADDRESS",
+  "VITE_WORKER_URL",
+  "VITE_MANTLE_RPC_URL",
+] as const;
+
+export function validateRuntimeConfig(): void {
+  const missing = CRITICAL_ENV_KEYS.filter((key) => {
+    const value = env[key];
+    return !value || String(value).trim() === "";
+  });
+
+  if (missing.length === 0) return;
+
+  const message = `[AMEO] Missing critical env: ${missing.join(", ")}. Using fallbacks — verify Vercel/local .env.`;
+  if (import.meta.env.DEV) {
+    console.warn(message);
+  }
+}
 
 export function formatVolatilityTriggerExample(): string {
   const threshold = runtimeConfig.volatilityThresholdPct;

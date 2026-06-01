@@ -1,12 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { useAmeoUi } from "../context/AmeoUiContext";
 import { useEventTail, type EventLine } from "../hooks/useEventTail";
+import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 function formatEventLine(event: EventLine): string {
   if (event.type === "idle") {
     return "[INFO] Worker idle — waiting for next cycle.";
   }
+
+  const payload = event.data ? JSON.stringify(event.data) : "";
+  const isByrealQuote =
+    payload.includes("byreal_quote_fetched") ||
+    payload.includes("byreal_skill_invocation") || // legacy
+    (event.msg ?? "").includes("byreal_quote_fetched");
 
   const level =
     event.event_type === "action_failed" || event.event_type === "llm_provider_failed"
@@ -15,15 +23,15 @@ function formatEventLine(event: EventLine): string {
           event.event_type === "action_executed" ||
           event.event_type === "llm_provider_succeeded"
         ? "SUCCESS"
+        : isByrealQuote
+        ? "TELEMETRY"
         : "INFO";
 
   const cycle = event.cycle_id ? ` cycle=${event.cycle_id}` : "";
   const kind = event.event_type ?? event.type ?? "event";
   const detail =
     event.msg ??
-    (event.data && Object.keys(event.data).length > 0
-      ? JSON.stringify(event.data)
-      : kind);
+    (event.data && Object.keys(event.data).length > 0 ? payload : kind);
 
   return `[${level}] ${kind}${cycle} — ${detail}`;
 }
@@ -31,7 +39,7 @@ function formatEventLine(event: EventLine): string {
 function renderLogLine(line: string, index: number) {
   let textColor = "text-cream/90";
 
-  if (line.includes("[SUCCESS]") || line.includes("[OK]")) {
+  if (line.includes("[SUCCESS]") || line.includes("[OK]") || line.includes("byreal_skill")) {
     textColor = "text-green-400 font-semibold";
   } else if (line.includes("[WARN]")) {
     textColor = "text-[#f59e0b] font-semibold";
@@ -57,12 +65,21 @@ export function NarrativeConsole() {
   const { lines, idle } = useEventTail(workerUrl);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
+  const { data: schedulerInfo } = useSchedulerStatus();
+
   const displayedLines =
     lines.length > 0 ? lines.map(formatEventLine) : idle ? ["[INFO] Worker idle — waiting for next cycle."] : [];
 
+  const lastEvent = lines[lines.length - 1];
+  const footerMeta = useMemo(() => {
+    const lastType = lastEvent?.event_type ?? (idle ? "idle" : "connecting");
+    const lastCycle = lastEvent?.cycle_id ?? "—";
+    return { lastType, lastCycle };
+  }, [idle, lastEvent]);
+
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [displayedLines.length]);
+  }, [lines]);
 
   return (
     <div
@@ -77,7 +94,7 @@ export function NarrativeConsole() {
             <span className="h-2.5 w-2.5 rounded-full border border-ink/40 bg-green-500" />
           </div>
           <span className="ml-2 font-mono text-[10px] font-bold uppercase tracking-widest text-muted">
-            am-os-worker // telemetry_stream
+            worker telemetry · SSE tail
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -85,7 +102,7 @@ export function NarrativeConsole() {
             <>
               <span className="inline-block h-1.5 w-1.5 animate-ping rounded-full bg-green-400" />
               <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-green-400">
-                Live Stream
+                Live
               </span>
             </>
           ) : (
@@ -104,7 +121,9 @@ export function NarrativeConsole() {
             {(displayedLines.length + 1).toString().padStart(3, "0")}
           </span>
           <span className="animate-pulse font-semibold text-muted">
-            &gt; {idle || lines.length === 0 ? "waiting for worker events" : "streaming JSONL tail"}
+            &gt; {idle || lines.length === 0 
+              ? `idle · 30min scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ''}` 
+              : "streaming JSONL tail"}
           </span>
           <span
             className="inline-block h-4 w-2 animate-blink bg-muted/60"
@@ -115,10 +134,11 @@ export function NarrativeConsole() {
         <div ref={terminalEndRef} />
       </div>
 
-      <div className="flex items-center justify-between border-t border-ink bg-[#231e1a] px-4 py-2 font-mono text-[9px] text-muted">
-        <span>ENCODING: UTF-8</span>
-        <span>EIP-8004 LOGS</span>
-        <span>MANTLE_SEPOLIA: 5003</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink bg-[#231e1a] px-4 py-2 font-mono text-[9px] text-muted">
+        <span>SSE · /api/events/tail</span>
+        <span>chain {runtimeConfig.mantleChainId}</span>
+        <span>last {footerMeta.lastType}</span>
+        <span>cycle {footerMeta.lastCycle}</span>
       </div>
 
       <style>{`

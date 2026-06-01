@@ -45,10 +45,18 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
       { id: "plan", title: "Planner output", payload: detail.plan },
       {
         id: "policy",
-        title: "Policy validation",
+        title: detail.policy_checks?.some((c: any) => !c.passed) 
+          ? "Policy validation — REJECTIONS DETECTED" 
+          : "Policy validation",
         payload: detail.policy_checks,
       },
-      { id: "execution", title: "Execution · via Byreal Skills CLI", payload: detail.execution },
+      { 
+        id: "execution", 
+        title: (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") 
+          ? "Execution · Volatility Rebalance (Mantle DEX)" 
+          : "Execution · Mantle DEX (Merchant Moe / FusionX)", 
+        payload: detail.execution 
+      },
       { id: "tx", title: "Settled on Mantle Sepolia", payload: detail.tx_hash },
       {
         id: "onchain",
@@ -208,13 +216,25 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                   >
                     <span className="font-display text-sm font-bold text-ink sm:text-base">
                       {node.title}
+                      {node.id === "plan" && (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") && (
+                        <span className="ml-2 inline-block rounded border border-amber-500 bg-amber-50 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-700">
+                          ⚡ VOLATILITY RESPONSE
+                        </span>
+                      )}
                     </span>
                     <span
                       id={`replay-node-${index}-evidence`}
                       className="shrink-0 font-mono text-[10px] font-extrabold uppercase"
                     >
                       {isComplete ? (
-                        <span className="bg-[#3d7a5f] px-2 py-0.5 text-surface">✓ VERIFIED</span>
+                        <span className="bg-[#3d7a5f] px-2 py-0.5 text-surface text-[9px]">
+                          {index === 0 && 'OBSERVED'}
+                          {index === 1 && 'GENERATED'}
+                          {index === 2 && 'EVALUATED'}
+                          {index === 3 && 'SETTLED'}
+                          {index === 4 && 'PROVEN'}
+                          {index > 4 && 'VERIFIED'}
+                        </span>
                       ) : isActive ? (
                         <span className="animate-pulse bg-accent px-2 py-0.5 text-surface">● ACTIVE</span>
                       ) : (
@@ -222,6 +242,18 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                       )}
                     </span>
                   </button>
+
+                  {/* Special callouts for interesting behavior (MVP/D polish) */}
+                  {node.id === "plan" && (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") && (
+                    <div className="mb-2 p-2 bg-amber-50 border-2 border-amber-500 text-amber-800 text-[10px] font-mono">
+                      ⚡ VOLATILITY RESPONSE: Agent adapted to market move in fallback mode. This is real adaptive behavior.
+                    </div>
+                  )}
+                  {node.id === "policy" && detail.policy_checks?.some((c: any) => !c.passed) && (
+                    <div className="mb-2 p-2 bg-red-50 border-2 border-red-500 text-red-700 text-[10px] font-mono">
+                      ⚠️ POLICY REJECTION(S) DETECTED: Plan was blocked or adjusted by guardrails. Safety layer active.
+                    </div>
+                  )}
 
                   {node.id === "tx" && detail.tx_hash?.hash ? (
                     <p className="mt-2 font-mono text-xs text-ink">

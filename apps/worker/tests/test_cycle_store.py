@@ -67,7 +67,7 @@ def _write_fixture(
             event_type=EventType.ACTION_EXECUTED,
             data={
                 "ok": True,
-                "tx_hash": "dab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8",
+                "tx_hash": "0x" + "a" * 64,  # placeholder - do not use the old removed hero tx
                 "error": None,
             },
             correlation_id="rules-29c5d5c5",

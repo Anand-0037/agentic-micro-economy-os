@@ -27,6 +27,7 @@ packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
 packages/contracts/standard-input.json
+.kiro 
 
 # local DB cache (Neon in production)
 **/*.db

@@ -34,3 +34,17 @@ def init_sentry(dsn: str) -> None:
         enable_logs=True,
         integrations=integrations,
     )
+
+
+def set_cycle_sentry_context(cycle_id: str) -> None:
+    """Tag Sentry events with the active cognition cycle."""
+    sentry_sdk.set_tag("ameo_cycle", cycle_id)
+    sentry_sdk.set_context(
+        "ameo_cycle",
+        {"cycle_id": cycle_id},
+    )
+
+
+def clear_cycle_sentry_context() -> None:
+    sentry_sdk.set_tag("ameo_cycle", "")
+    sentry_sdk.set_context("ameo_cycle", {})

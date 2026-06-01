@@ -39,6 +39,7 @@ _AGENT_IDENTITY_ABI = [
         "stateMutability": "view",
         "type": "function",
     },
+    # V1 signature (matches currently deployed 0x8aC72a4B... on Sepolia)
     {
         "inputs": [
             {"name": "agentId", "type": "uint256"},
@@ -47,6 +48,21 @@ _AGENT_IDENTITY_ABI = [
             {"name": "metadataUri", "type": "string"},
         ],
         "name": "logDecision",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    # V2 (proposed in contracts/src for post-hackathon upgrade - richer for benchmarking)
+    {
+        "inputs": [
+            {"name": "agentId", "type": "uint256"},
+            {"name": "rationaleHash", "type": "bytes32"},
+            {"name": "signedPnL1e18", "type": "int256"},
+            {"name": "actionType", "type": "string"},
+            {"name": "metadataUri", "type": "string"},
+            {"name": "dataHash", "type": "string"},
+        ],
+        "name": "logDecisionV2",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function",
@@ -87,6 +103,8 @@ class OnchainLogger:
         agent_id = self._ensure_agent_minted(agent_id, account.address)
         rationale_hash = self._w3.keccak(text=rationale)
 
+        # Always use V1 signature for the currently deployed live identity contract.
+        # V2 (with explicit PnL + dataHash) will be used after we migrate/upgrade the identity NFT post-hackathon.
         tx = self._contract.functions.logDecision(
             agent_id,
             rationale_hash,

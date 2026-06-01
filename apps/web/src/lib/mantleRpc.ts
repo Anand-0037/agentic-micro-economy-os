@@ -1,4 +1,4 @@
-/** Real Mantle Sepolia RPC endpoints (ordered). Official RPC rate-limits; use providers. */
+/** Real Mantle Sepolia RPC endpoints (ordered). Official RPC first; avoid DRPC SSL issues. */
 export function mantleRpcUrls(): string[] {
   const fromEnv = [
     import.meta.env.VITE_MANTLE_RPC_URL,
@@ -6,8 +6,8 @@ export function mantleRpcUrls(): string[] {
   ].filter((url): url is string => Boolean(url));
 
   const defaults = [
-    "https://mantle-sepolia.drpc.org",
     "https://rpc.sepolia.mantle.xyz",
+    "https://rpc.ankr.com/mantle_sepolia",
   ];
 
   return [...new Set([...fromEnv, ...defaults])];

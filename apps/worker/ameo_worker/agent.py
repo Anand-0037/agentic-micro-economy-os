@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from .graph import build_graph
 from .logutil import log_struct
+from .sentry_setup import clear_cycle_sentry_context, set_cycle_sentry_context
 from .services.event_store import EventStore, EventType
 from .state import update_status
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 async def run_cycle() -> Dict[str, Any]:
     cycle_id = f"cyc_{uuid.uuid4().hex[:8]}"
 
+    set_cycle_sentry_context(cycle_id)
     log_struct("cycle_start", cycle_id=cycle_id, correlation_id=cycle_id)
 
     EventStore().emit(
@@ -45,3 +47,5 @@ async def run_cycle() -> Dict[str, Any]:
             data={"error": str(exc), "critical": True},
         )
         raise
+    finally:
+        clear_cycle_sentry_context()

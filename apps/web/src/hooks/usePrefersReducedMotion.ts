@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 
+import {
+  safeStorageGet,
+  safeStorageRemove,
+  safeStorageSet,
+} from "../lib/safeStorage";
+
+const STORAGE_KEY = "ameo:reduced-motion";
+
 /**
  * Returns true if the user has requested reduced motion via OS setting
  * (prefers-reduced-motion: reduce) or the manual reduced-motion override.
@@ -10,12 +18,11 @@ export function usePrefersReducedMotion(): boolean {
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () =>
-      setReduced(mq.matches || window.localStorage.getItem("ameo:reduced-motion") === "1");
+    const sync = () => setReduced(mq.matches || safeStorageGet(STORAGE_KEY) === "1");
     sync();
     mq.addEventListener("change", sync);
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "ameo:reduced-motion") sync();
+      if (e.key === STORAGE_KEY) sync();
     };
     const onOverride = () => sync();
     window.addEventListener("storage", onStorage);
@@ -32,9 +39,9 @@ export function usePrefersReducedMotion(): boolean {
 
 export function setReducedMotionOverride(enabled: boolean): void {
   if (enabled) {
-    window.localStorage.setItem("ameo:reduced-motion", "1");
+    safeStorageSet(STORAGE_KEY, "1");
   } else {
-    window.localStorage.removeItem("ameo:reduced-motion");
+    safeStorageRemove(STORAGE_KEY);
   }
   window.dispatchEvent(new Event("ameo:reduced-motion"));
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { useDemoMode } from "../context/DemoModeContext";
 import { useAmeoUi } from "../context/AmeoUiContext";
 import { useAmeo } from "../context/AmeoDataContext";
 import { usePrefersReducedMotion, setReducedMotionOverride } from "../hooks/usePrefersReducedMotion";
@@ -15,7 +14,8 @@ import { runtimeConfig } from "../lib/runtimeConfig";
 const defaultRpc = runtimeConfig.mantleRpcUrl;
 const defaultChain = runtimeConfig.mantleChainId;
 const sentryEnv = import.meta.env.VITE_SENTRY_ENVIRONMENT ?? "unknown";
-const sentryConfigured = Boolean(import.meta.env.VITE_SENTRY_DSN);
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+const sentryConfigured = Boolean(sentryDsn && String(sentryDsn).trim() !== "");
 
 type OperatorSettingsPanelProps = {
   active?: boolean;
@@ -27,7 +27,6 @@ function stackLabel(ok: boolean | null): string {
 }
 
 export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelProps) {
-  const { demoMode, setDemoMode } = useDemoMode();
   const reducedMotion = usePrefersReducedMotion();
   const { dev } = useSystemStatus();
   const { workerUrl, setWorkerUrl } = useAmeoUi();
@@ -50,9 +49,13 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
   }, [toast]);
 
   const handleSave = async () => {
+    const next = draftUrl.trim();
+    if (!next) {
+      setToast({ variant: "error", message: "Worker URL cannot be empty" });
+      return;
+    }
     setSaving(true);
     setToast(null);
-    const next = draftUrl.trim();
     setWorkerUrl(next);
     try {
       const res = await fetch(`${next.replace(/\/$/, "")}/health`, {
@@ -73,23 +76,6 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-border bg-neutral-50 p-4">
-        <label className="flex cursor-pointer items-center justify-between gap-3">
-          <span className="text-sm font-medium text-ink">Demo mode (hide operator UI)</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[#E8622A]"
-            checked={demoMode}
-            onChange={(e) => setDemoMode(e.target.checked)}
-          />
-        </label>
-        <p className="mt-2 text-xs text-muted">
-          Hides gear icon, warnings, build version, and bootstrap callouts. Enable with{" "}
-          <code className="font-mono">?demo=1</code> before recording. Exit with{" "}
-          <code className="font-mono">?demo=0</code> or turn this off.
-        </p>
-      </section>
-
       <section className="rounded-lg border border-border bg-neutral-50 p-4">
         <label className="flex cursor-pointer items-center justify-between gap-3">
           <span className="text-sm font-medium text-ink">Reduce motion</span>
@@ -254,13 +240,15 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
               Sentry {sentryConfigured ? "configured" : "not configured"} ({sentryEnv})
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                className="btn-secondary h-9 px-3 text-xs font-semibold"
-                type="button"
-                onClick={() => captureSentryTestError()}
-              >
-                Test client Sentry
-              </button>
+              {import.meta.env.DEV ? (
+                <button
+                  className="btn-secondary h-9 px-3 text-xs font-semibold"
+                  type="button"
+                  onClick={() => captureSentryTestError()}
+                >
+                  Test client Sentry
+                </button>
+              ) : null}
               <button
                 className="btn-secondary h-9 px-3 text-xs font-semibold"
                 type="button"

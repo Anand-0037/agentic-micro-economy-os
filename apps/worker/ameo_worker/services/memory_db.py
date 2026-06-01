@@ -16,15 +16,28 @@ def _default_db_path() -> Path:
     return _REPO_ROOT / "data" / "ameo.db"
 
 
+def _resolve_db_path(settings: Settings) -> Path:
+    if settings.memory_db_path:
+        db_path = Path(settings.memory_db_path)
+        if not db_path.is_absolute():
+            db_path = _REPO_ROOT / db_path
+    else:
+        db_path = _default_db_path()
+
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        fallback = _default_db_path()
+        if db_path.resolve() == fallback.resolve():
+            raise
+        fallback.parent.mkdir(parents=True, exist_ok=True)
+        return fallback
+    return db_path
+
+
 class MemoryDB:
     def __init__(self, settings: Settings) -> None:
-        if settings.memory_db_path:
-            db_path = Path(settings.memory_db_path)
-            if not db_path.is_absolute():
-                db_path = _REPO_ROOT / db_path
-        else:
-            db_path = _default_db_path()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path = _resolve_db_path(settings)
         self._path = db_path
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -62,6 +75,39 @@ class MemoryDB:
                 notional_usd REAL NOT NULL DEFAULT 0.0
             )
             """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS plan_executions (
+                plan_hash TEXT PRIMARY KEY,
+                executed_at TEXT NOT NULL,
+                cycle_id TEXT NOT NULL
+            )
+            """)
+        self._conn.commit()
+
+    def plan_executed_recently(self, plan_hash: str, within_minutes: int = 5) -> bool:
+        cursor = self._conn.cursor()
+        row = cursor.execute(
+            "SELECT executed_at FROM plan_executions WHERE plan_hash = ?",
+            (plan_hash,),
+        ).fetchone()
+        if not row:
+            return False
+        executed_at = datetime.fromisoformat(row["executed_at"])
+        age_sec = (datetime.utcnow() - executed_at).total_seconds()
+        return age_sec <= within_minutes * 60
+
+    def record_plan_execution(self, plan_hash: str, cycle_id: str) -> None:
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO plan_executions (plan_hash, executed_at, cycle_id)
+            VALUES (?, ?, ?)
+            ON CONFLICT(plan_hash) DO UPDATE SET
+              executed_at = excluded.executed_at,
+              cycle_id = excluded.cycle_id
+            """,
+            (plan_hash, datetime.utcnow().isoformat(), cycle_id),
+        )
         self._conn.commit()
 
     def record_execution(

@@ -1,27 +1,43 @@
-# AMEO — Verifiable cognition for autonomous agents on Mantle
+# AMEO — Policy guardrails for autonomous agents on Mantle
 
-Trust infrastructure for autonomous finance — standard-setting cryptographic accountability for on-chain AI agents. AMEO observes treasury state, reasons under policy, executes on Mantle Sepolia, and returns explorer-verifiable proof for every decision.
+Trust infrastructure for autonomous finance. AMEO enforces policy guardrails **outside the LLM** — before execution, not after. Every decision produces a permanent, independently verifiable record on Mantle via ERC-8004-inspired identity + 0G Storage + DecisionLogged events.
+
+**Three defining features:**
+1. **Policy enforcement outside the LLM** — 7 guardrails checked before every execution (max drawdown, asset whitelist, trade size, gas budget, etc.)
+2. **Verifiable decisions** — Every rationale, policy check, and execution trace is independently checkable on-chain
+3. **Radical transparency** — Live observable agents that adapt and self-correct under policy constraints
 
 - **REST API** — `/v1/*` on the worker (`/v1/verify/{txHash}` for one-shot proof)
 - **TypeScript SDK** — `@ameo/sdk` npm package
 - **MCP server** — `@ameo/mcp` for Claude Desktop and Cursor
 - **Narrative Console** — live replay at [ameo.agiwithai.com](https://ameo.agiwithai.com)
 
-## Confirm it works in under a minute
+## Confirm it works in under a minute (no mocks, honest proof)
 
 | Step | What you'll see | Link |
 | --- | --- | --- |
-| 1. The agent is a real contract | Verified Solidity on Mantlescan | [`0x8aC7…4197`](https://sepolia.mantlescan.xyz/address/0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197#code) |
-| 2. It has actually acted | `DecisionLogged` event for cycle `cyc_df716921` | [tx `0xdab1…ecf8`](https://sepolia.mantlescan.xyz/tx/0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8) |
-| 3. API proof in one call | `/v1/verify/{txHash}` JSON | [worker `/v1/verify/0xdab1…ecf8`](https://agentic-micro-economy-os.onrender.com/v1/verify/0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8) |
-| 4. You can replay it visually | 9-node walkthrough in the live console | [ameo.agiwithai.com/app/replay?cycle=cyc_df716921](https://ameo.agiwithai.com/app/replay?cycle=cyc_df716921) |
+| 1. Verified agent contract | ERC-8004-inspired identity on Mantlescan | [`0x8aC7…4197`](https://sepolia.mantlescan.xyz/address/0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197#code) |
+| 2. Real execution tx | Any recent `DecisionLogged` event from the live console | Open https://ameo.agiwithai.com |
+| 3. API verification | `/v1/verify/{txHash}` — returns full policy checks + execution proof | Worker verify endpoint |
+| 4. Full decision replay | Every policy check, rationale, and settlement trace | [ameo.agiwithai.com/app/replay](https://ameo.agiwithai.com/app/replay) |
 
-## What it does, in four steps
+The verify endpoint returns transparent proof for every decision — policy checks, rationale hashes, and execution traces.
+
+## How policy enforcement works
 
 1. **Observe** — reads wallet balances, gas prices, and market signals from Mantle Sepolia.
 2. **Decide** — an LLM proposes an action (swap, hold, rebalance). The reasoning is hashed and stored on 0G Storage.
-3. **Check** — a policy engine rejects the action if it breaks any of 7 hard rules (max drawdown, asset whitelist, trade-size cap, gas budget, etc.).
-4. **Execute & log** — if the action passes, AMEO invokes the Byreal Skills CLI path, settles on Mantle Sepolia, and writes a `DecisionLogged` event to its ERC-8004 identity contract.
+3. **Policy check (outside LLM)** — 7 hard rules are checked **before execution**:
+   - Max drawdown limit (12% cap)
+   - Asset whitelist (USDC, MNT only)
+   - Trade size cap ($500 max)
+   - Gas budget limit
+   - Minimum balance requirements
+   - Slippage tolerance
+   - Execution frequency limits
+4. **Execute & log** — if the action passes all policy checks, AMEO settles via Mantle DEX adapter (FusionX V2), then emits `DecisionLogged` on the identity contract with full policy proof.
+
+**Key insight:** Policy enforcement happens in deterministic Python code, not in the LLM. The LLM can propose anything — policy decides what actually executes.
 
 ## Links
 
@@ -54,15 +70,16 @@ cd apps/worker && uv sync && uv run uvicorn ameo_worker.main:app --reload
 cd apps/web && npm install && npm run dev
 ```
 
-Or one-shot with Docker: `docker compose up --build`. Console at `http://localhost:5173`, API at `http://localhost:8000`.
+**Deploy:** Frontend on [Vercel](https://vercel.com) (`apps/web`). Worker on [Render](https://render.com) — see `render.yaml` and `apps/worker/scripts/render-build.sh`. Set `MEMORY_DB_PATH=data/ameo.db`, or attach a Render disk at `/data` and use `MEMORY_DB_PATH=/data/ameo.db`.
 
 Deployed worker API: https://agentic-micro-economy-os.onrender.com
 
 ## Safety choices, said plainly
 
+- **Policy enforcement is deterministic** — The 7 guardrails run in pure Python, not in the LLM. The LLM can propose anything; policy decides what executes.
 - The agent's signing key is a hot EOA in a `.env` file. That's fine for a testnet demo. For production, swap in KMS or MPC. We've isolated the key path so this is a one-file change.
 - Sepolia DEXes have thin liquidity, so when a swap can't fill cleanly, the agent falls back to a self-transfer (`treasury_ping`) that still proves the policy → signing → RPC path. We surface this honestly in the UI.
-- The LLM has a fallback chain: z.ai → Groq → Gemini → local rules. If every provider is down, the agent **refuses to act** rather than guessing.
+- The LLM has a fallback chain: z.ai → Groq → Gemini → local rules. If every provider is down, the agent **refuses to act** rather than guessing. Policy still enforces even when LLMs fail.
 
 ## Docs
 

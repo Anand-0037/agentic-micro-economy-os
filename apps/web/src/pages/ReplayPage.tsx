@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { CycleReplayCard } from "../components/CycleReplayCard";
+import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
 import { useCycle, useCyclesList } from "../hooks/useCycles";
 import { shortHash } from "../lib/dashboardFormat";
 
@@ -171,7 +172,9 @@ export function ReplayPage() {
               Select a cycle to inspect the full cognition tree.
             </div>
           ) : (
-            <CycleReplayCard detail={detail} cycleNumber={cycleNumber} />
+            <LocalErrorBoundary title="Cycle replay failed to render.">
+              <CycleReplayCard detail={detail} cycleNumber={cycleNumber} />
+            </LocalErrorBoundary>
           )}
         </div>
       </div>

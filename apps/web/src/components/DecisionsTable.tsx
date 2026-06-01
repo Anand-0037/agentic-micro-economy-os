@@ -163,7 +163,7 @@ export function DecisionsTable({
                 {visibleLogs.map((log) => {
                   const status = decisionStatus(log.actionType);
                   const pnl =
-                    log.pnl1e18 !== undefined
+                    log.pnl1e18 != null
                       ? (Number(log.pnl1e18) / 1e18).toFixed(4)
                       : null;
                   return (
@@ -172,7 +172,15 @@ export function DecisionsTable({
                       className="border-b border-border/50"
                     >
                       <td className="py-3 pr-4 tabular-nums text-muted">On-chain</td>
-                      <td className="py-3 pr-4 font-medium">{log.actionType}</td>
+                      <td className="py-3 pr-4 font-medium">
+                        {log.actionType}
+                        {(log as any).plan?.rationale_summary?.toLowerCase?.().includes("volatility") && (
+                          <span className="ml-1 inline-block rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">⚡ VOL</span>
+                        )}
+                        {(log as any).policy_checks?.some((c: any) => !c.passed) && (
+                          <span className="ml-1 inline-block rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">⚠ REJ</span>
+                        )}
+                      </td>
                       <td className="py-3 pr-4 tabular-nums text-muted">
                         {pnl !== null ? `PnL ${pnl}` : "—"}
                       </td>

@@ -78,7 +78,7 @@ def test_anchor_failure_graceful(caplog: pytest.LogCaptureFixture) -> None:
     assert any("zero_g_anchor_failed" in rec.message for rec in caplog.records)
 
 
-def test_log_node_uses_empty_metadata_when_anchor_fails() -> None:
+def test_log_node_schedules_background_finalize() -> None:
     plan = ActionPlan(
         action_type="swap",
         idempotency_key="k1",
@@ -97,20 +97,14 @@ def test_log_node_uses_empty_metadata_when_anchor_fails() -> None:
         "byreal_skill_result": None,
     }
 
-    failed_anchor = ZeroGAnchorResult(root_hash=None, indexer_url=None, anchored=False)
-    with patch("ameo_worker.graph._memory") as memory_mock:
-        memory_mock.return_value.record_execution = MagicMock()
-        with patch("ameo_worker.graph.ZeroGStorageService") as service_cls:
-            service_cls.return_value.is_configured.return_value = True
-            service_cls.return_value.anchor_trace.return_value = failed_anchor
-        with patch("ameo_worker.graph.EventStore") as event_store_cls:
-            event_store_cls.return_value.get_cycle_events.return_value = []
-            event_store_cls.return_value.emit = MagicMock()
-        with patch("ameo_worker.graph.OnchainLogger") as logger_cls:
-            logger_cls.return_value.log_decision.return_value = {"tx_hash": "0x1"}
+    with patch("ameo_worker.graph._ctx") as ctx_mock:
+        ctx_mock.return_value.memory.record_execution = MagicMock()
+        with patch("ameo_worker.graph.asyncio.get_running_loop") as loop_mock:
+            loop_mock.return_value.create_task = MagicMock()
             with patch("ameo_worker.graph.update_status"):
-                result = log(state)
+                with patch("ameo_worker.graph.EventStore") as event_store_cls:
+                    event_store_cls.return_value.emit = MagicMock()
+                    result = log(state)
 
-    logger_cls.return_value.log_decision.assert_called_once()
-    assert logger_cls.return_value.log_decision.call_args[0][4] == ""
-    assert result.get("zero_g") is None
+    assert result["log"]["zero_g"]["status"] == "pending"
+    loop_mock.return_value.create_task.assert_called_once()

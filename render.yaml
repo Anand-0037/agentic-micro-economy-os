@@ -1,0 +1,17 @@
+# AMEO worker — native Python on Render (no Docker).
+# Frontend deploys separately on Vercel (apps/web).
+#
+# Optional persistence: attach a 1GB disk at /data and set MEMORY_DB_PATH=/data/ameo.db
+services:
+  - type: web
+    name: ameo-worker
+    runtime: python
+    rootDir: apps/worker
+    buildCommand: bash scripts/render-build.sh
+    startCommand: uvicorn ameo_worker.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: MEMORY_DB_PATH
+        value: data/ameo.db
+      - key: PYTHON_VERSION
+        value: 3.12.0

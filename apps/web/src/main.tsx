@@ -7,11 +7,13 @@ import { WagmiProvider } from "wagmi";
 import App from "./App";
 import { SentryErrorFallback } from "./components/SentryErrorFallback";
 import { AmeoUiProvider } from "./context/AmeoUiContext";
+import { validateRuntimeConfig } from "./lib/runtimeConfig";
 import { initSentry, Sentry } from "./sentry";
 import { wagmiConfig } from "./wagmi";
 import "./index.css";
 
 initSentry();
+validateRuntimeConfig();
 
 const queryClient = new QueryClient();
 

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
-import { runtimeConfig, sampleSwapDescription, sampleThoughtProcess } from "../lib/runtimeConfig";
+import { apiGet } from "../lib/apiClient";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 export type CycleData = {
   observation?: {
@@ -38,43 +39,19 @@ export type CycleData = {
     verifiedOnChain: boolean;
     explorerUrl: string;
   };
+  plan?: {
+    rationale_summary?: string;
+    rationale?: string;
+  };
 };
 
-const defaultSampleData: CycleData = {
-  observation: {
-    balances: { USDC: 850, MNT: 150, ETH: 0.05 },
-    gasPriceWei: 15000000000,
-    rpcUrl: runtimeConfig.mantleRpcUrl,
-    blockNumber: 12508931,
-  },
-  reasoning: {
-    llmProvider: runtimeConfig.llmProviderLabel,
-    model: runtimeConfig.llmModel,
-    rationaleHash: "0xe5c328db9453965b72186cb7d55f0b4d4cf38a0f9b3438ea2f57a3e78453efb2",
-    thoughtProcess: sampleThoughtProcess(),
-    zeroGHash: "0x00ff89cb51a2d6ccfb9bbebacf9638abb0033c92747b1e4bd5f89bbb66bae657268",
-  },
-  policy: {
-    maxDrawdownLimit: "12% cap",
-    drawdownPassed: true,
-    whitelistPassed: true,
-    tradeSizeLimitUsd: runtimeConfig.maxTradeUsd,
-    planApproved: true,
-  },
-  execution: {
-    sender: runtimeConfig.agentIdentityAddress,
-    targetContract: `${runtimeConfig.fusionxRouter} (Byreal Skills CLI)`,
-    actionDescription: sampleSwapDescription(),
-    signingKeyType: runtimeConfig.signingMethod,
-    gasEstimateGwei: 28,
-  },
-  settlement: {
-    txHash: "0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8",
-    blockNumber: 12508933,
-    verifiedOnChain: true,
-    explorerUrl: `${runtimeConfig.explorerBase}/tx/0x4642ab7f29188e404b901dbd330ff2dbd87e00e84b901dbd330ff2dbd87e00e8c8`,
-  },
-};
+function isVolatilityResponse(data: CycleData): boolean {
+  const summary = data.plan?.rationale_summary?.toLowerCase() ?? "";
+  return summary.includes("volatility");
+}
+
+// defaultSampleData removed for Block C: no static/fake hero data or tx hashes in product surfaces.
+// All timelines now require real cycle data from /v1/decisions or live fetch.
 
 type CognitionTimelineProps = {
   cycleData?: CycleData;
@@ -89,13 +66,104 @@ export function CognitionTimeline({
   pauseOnHover = false,
   hideHeader = false,
 }: CognitionTimelineProps) {
-  const data = cycleData || defaultSampleData;
+  const [liveData, setLiveData] = useState<CycleData | null>(null);
+  const [liveLoading, setLiveLoading] = useState(false);
   const reduced = usePrefersReducedMotion();
   const [activeStep, setActiveStep] = useState(0);
   const [replayKey, setReplayKey] = useState(0);
   const [paused, setPaused] = useState(false);
 
+  // useLatestCycleSample() equivalent - dynamic hero data from /v1/decisions (no hardcoded tx)
   useEffect(() => {
+    if (cycleData) return;
+
+    const workerUrl = runtimeConfig.workerUrl.replace(/\/$/, "");
+    let cancelled = false;
+    setLiveLoading(true);
+
+    async function load() {
+      try {
+        const [decJson, probe] = await Promise.all([
+          apiGet<{ items?: Array<{ cycleId?: string; txHash?: string | null }> }>(
+            workerUrl,
+            "/v1/decisions?limit=1",
+          ).catch(() => null),
+          apiGet<{ block_number?: number }>(workerUrl, "/api/mantle-probe").catch(() => null),
+        ]);
+        if (cancelled) return;
+
+        const chainBlock = Number(probe?.block_number ?? 0);
+        const item = decJson?.items?.[0];
+        if (!item) return;
+
+        let detail: {
+          observation?: { block_number?: number; balances?: Record<string, number>; gas_price_wei?: number };
+          summary?: { tx_hash?: string; action_type?: string };
+          plan?: { rationale_summary?: string; planner_version?: string };
+          tx_hash?: { hash?: string; block_number?: number };
+        } | null = null;
+
+        if (item.cycleId) {
+          detail = await apiGet<{
+            observation?: {
+              block_number?: number;
+              balances?: Record<string, number>;
+              gas_price_wei?: number;
+            };
+            summary?: { tx_hash?: string; action_type?: string };
+            plan?: { rationale_summary?: string; planner_version?: string };
+            tx_hash?: { hash?: string; block_number?: number };
+          }>(workerUrl, `/api/cycles/${encodeURIComponent(item.cycleId)}`).catch(() => null);
+        }
+
+        if (cancelled) return;
+
+        const txHash = item.txHash || detail?.summary?.tx_hash || detail?.tx_hash?.hash || "";
+        const blockNumber = Number(
+          detail?.observation?.block_number ??
+            detail?.tx_hash?.block_number ??
+            chainBlock,
+        );
+
+        setLiveData({
+          observation: {
+            balances: detail?.observation?.balances ?? {},
+            gasPriceWei: Number(detail?.observation?.gas_price_wei ?? 0),
+            rpcUrl: runtimeConfig.mantleRpcUrl,
+            blockNumber,
+          },
+          settlement: {
+            txHash,
+            blockNumber,
+            verifiedOnChain: Boolean(txHash),
+            explorerUrl: txHash ? `${runtimeConfig.explorerBase}/tx/${txHash}` : "",
+          },
+        });
+      } catch {
+        /* keep skeleton */
+      } finally {
+        if (!cancelled) {
+          setLiveLoading(false);
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [cycleData]);
+
+  const data = cycleData || liveData;
+  const volatilityResponse = useMemo(
+    () => (data ? isVolatilityResponse(data) : false),
+    [data],
+  );
+
+  useEffect(() => {
+    if (!data) {
+      return undefined;
+    }
     if (reduced) {
       setActiveStep(4);
       return undefined;
@@ -123,7 +191,21 @@ export function CognitionTimeline({
     return () => {
       intervals.forEach((id) => clearTimeout(id));
     };
-  }, [autoLoop, cycleData, pauseOnHover, paused, replayKey, reduced]);
+  }, [autoLoop, cycleData, data, pauseOnHover, paused, replayKey, reduced]);
+
+  // Block C: No static/fake hero data. If no real cycle, show skeleton.
+  if (!data) {
+    return (
+      <div className="neo-card p-6 bg-surface border-2 border-ink text-center">
+        <p className="text-muted">
+          {liveLoading
+            ? "Loading latest on-chain cycle…"
+            : "Awaiting first real cycle with on-chain settlement..."}
+        </p>
+        <p className="text-xs text-muted mt-1">Data is pulled dynamically from /v1/decisions</p>
+      </div>
+    );
+  }
 
   const handleReplay = () => {
     if (reduced) return;
@@ -168,8 +250,12 @@ export function CognitionTimeline({
       ) : null,
     },
     {
-      title: "Reasoning & Plan Compilation",
-      description: "Model generates trade plan anchored with a permanent 0G Storage receipt.",
+      title: volatilityResponse
+        ? "Reasoning & Plan Compilation — ⚡ VOLATILITY RESPONSE"
+        : "Reasoning & Plan Compilation",
+      description: volatilityResponse
+        ? "Market signal triggered rebalance in fallback mode."
+        : "Model generates trade plan anchored with a permanent 0G Storage receipt.",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 21l3.625-1.43c.094-.037.193-.056.294-.056h.163c.101 0 .2.019.294.056L17 21l-.813-5.096a3.5 3.5 0 0 0-2.458-2.835L12 12l-1.73 1.07a3.5 3.5 0 0 0-2.457 2.834Z" />
@@ -224,17 +310,22 @@ export function CognitionTimeline({
             <span className="text-ink/80">Max Trade Limit (${runtimeConfig.maxTradeUsd}):</span>
             <span className="font-semibold text-ink">${data.policy.tradeSizeLimitUsd}</span>
           </div>
-          <div className="mt-2 bg-[#dcfce7] border-2 border-[#166534] p-3 text-center">
-            <p className="font-sans font-extrabold text-[#166534] text-[11px] tracking-widest uppercase">
-              🛡️ POLICY VERIFICATION LOCKED & SECURED
-            </p>
+          <div className="mt-2 text-[10px] text-muted font-mono">
+            Evaluated · {data.policy?.drawdownPassed && data.policy?.whitelistPassed ? 'all predicates passed' : 'some predicates failed — plan adjusted'}
           </div>
+
+          {/* Dramatic rejection surfacing for demo (Block D / MVP) */}
+          {data.policy && (!data.policy.drawdownPassed || !data.policy.whitelistPassed) && (
+            <div className="mt-3 p-2 bg-red-50 border-2 border-red-500 text-red-700 text-[10px] font-mono">
+              ⚠️ POLICY REJECTION: Plan was adjusted or blocked by guardrails. This is the safety layer in action.
+            </div>
+          )}
         </div>
       ) : null,
     },
     {
-      title: "Execution · Byreal Skills CLI",
-      description: "Signing and submitting transaction via the isolated Byreal Skills CLI adapter.",
+      title: "Execution · Mantle DEX Adapter",
+      description: "Policy-approved plan executed via direct web3 call to Merchant Moe / FusionX router on Mantle Sepolia (hot EOA signer).",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
@@ -263,6 +354,11 @@ export function CognitionTimeline({
           <div className="mt-1 bg-amber-50 border border-amber-300 p-2 font-sans font-semibold text-[#b45309]">
             ⚡ Execution Adapter: {data.execution.actionDescription}
           </div>
+          {volatilityResponse && (
+            <div className="mt-2 text-[10px] bg-amber-100 border border-amber-400 p-1 font-mono">
+              VOLATILITY REBALANCE: Exposure adjusted due to recent price move. This is the agent's adaptive behavior.
+            </div>
+          )}
         </div>
       ) : null,
     },
@@ -291,10 +387,8 @@ export function CognitionTimeline({
               {data.settlement.txHash} ↗
             </a>
           </div>
-          <div className="mt-2 bg-[#d1fae5] border-2 border-[#065f46] p-3 text-center">
-            <p className="font-sans font-extrabold text-[#065f46] text-xs tracking-wider uppercase">
-              ✅ VERIFIED ON MANTLE EXPLORER
-            </p>
+          <div className="mt-2 text-[10px] text-muted font-mono">
+            Settled · block #{data.settlement.blockNumber || '—'}
           </div>
         </div>
       ) : null,
@@ -302,6 +396,7 @@ export function CognitionTimeline({
   ];
 
   return (
+    <LazyMotion features={domAnimation}>
     <div
       className="neo-card p-6 bg-surface border-2 border-ink"
       onMouseEnter={pauseOnHover ? () => setPaused(true) : undefined}
@@ -346,7 +441,7 @@ export function CognitionTimeline({
         <div className="absolute left-[18px] top-4 bottom-4 w-0.5 bg-ink/10" aria-hidden="true" />
         
         {/* Completed active trace overlay */}
-        <motion.div
+        <m.div
           className="absolute left-[18px] top-4 w-0.5 origin-top bg-accent"
           initial={reduced ? { scaleY: 1 } : { scaleY: 0 }}
           animate={{ scaleY: reduced ? 1 : activeStep / 4 }}
@@ -361,7 +456,7 @@ export function CognitionTimeline({
             const isFuture = activeStep < idx;
 
             return (
-              <motion.div
+              <m.div
                 key={idx}
                 className="relative"
                 initial={motionEnter}
@@ -369,7 +464,7 @@ export function CognitionTimeline({
                 transition={{ ...motionTransition, delay: reduced ? 0 : idx * 0.1 }}
               >
                 {/* Node icon circle */}
-                <motion.div
+                <m.div
                   className={`absolute -left-[30px] top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink transition-all sm:-left-[32px] ${
                     isCompleted
                       ? "bg-accent text-surface"
@@ -395,10 +490,10 @@ export function CognitionTimeline({
                   ) : (
                     step.icon
                   )}
-                </motion.div>
+                </m.div>
 
                 {/* Step content card */}
-                <motion.div
+                <m.div
                   className={`border-2 border-ink p-4 sm:p-5 transition-all ${
                     isActive
                       ? "bg-surface shadow-[4px_4px_0px_0px_#c86b4a]"
@@ -414,8 +509,12 @@ export function CognitionTimeline({
                       {step.title}
                     </h4>
                     {isCompleted ? (
-                      <span className="shrink-0 font-mono text-[10px] font-extrabold uppercase bg-[#3d7a5f] text-surface px-2 py-0.5 border border-[#3d7a5f]">
-                        ✓ VERIFIED
+                      <span className="shrink-0 font-mono text-[9px] font-bold uppercase bg-sand text-ink px-1.5 py-0.5 border border-ink/30">
+                        {idx === 0 && 'Observed'}
+                        {idx === 1 && 'Generated'}
+                        {idx === 2 && 'Approved'}
+                        {idx === 3 && 'Settled'}
+                        {idx === 4 && 'Proven'}
                       </span>
                     ) : isActive && !reduced ? (
                       <span className="shrink-0 animate-pulse border border-accent bg-accent px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase text-surface">
@@ -429,7 +528,7 @@ export function CognitionTimeline({
 
                   {/* Expansion content */}
                   {(!isFuture && step.content) && (
-                    <motion.div
+                    <m.div
                       initial={reduced ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -437,14 +536,15 @@ export function CognitionTimeline({
                       className="overflow-hidden"
                     >
                       {step.content}
-                    </motion.div>
+                    </m.div>
                   )}
-                </motion.div>
-              </motion.div>
+                </m.div>
+              </m.div>
             );
           })}
         </AnimatePresence>
       </div>
     </div>
+    </LazyMotion>
   );
 }

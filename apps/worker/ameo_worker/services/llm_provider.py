@@ -19,9 +19,38 @@ from ..settings import Settings
 from .event_store import EventStore, EventType
 from .rules_planner import build_rules_action_plan
 
+_CIRCUIT_BREAKERS: Dict[str, float] = {}
+_CIRCUIT_COOLDOWN_SEC = 60.0
+
+
+def _is_circuit_open(provider: str) -> bool:
+    until = _CIRCUIT_BREAKERS.get(provider)
+    if until is None:
+        return False
+    if time.monotonic() >= until:
+        _CIRCUIT_BREAKERS.pop(provider, None)
+        return False
+    return True
+
+
+def _trip_circuit(provider: str, cooldown_sec: float = _CIRCUIT_COOLDOWN_SEC) -> None:
+    _CIRCUIT_BREAKERS[provider] = time.monotonic() + cooldown_sec
+
+
+def get_circuit_breaker_status() -> Dict[str, Any]:
+    now = time.monotonic()
+    open_providers = [
+        name for name, until in _CIRCUIT_BREAKERS.items() if until > now
+    ]
+    return {
+        "open_providers": open_providers,
+        "cooldown_sec": _CIRCUIT_COOLDOWN_SEC,
+    }
+
+
 _CHAIN_STATUS: Dict[str, Any] = {
-    "active_provider": "z_ai",
-    "available_providers": ["z_ai", "groq", "gemini", "local_rules"],
+    "active_provider": "groq",
+    "available_providers": ["groq", "z_ai", "gemini", "local_rules"],
     "last_failover_at": None,
     "total_failovers_24h": 0,
     "_failover_timestamps": [],
@@ -285,6 +314,16 @@ def _provider_for_name(name: str, settings: Settings) -> LlmProvider:
     return get_llm_provider(patched)
 
 
+def _chain_provider_names(settings: Settings) -> List[str]:
+    raw = settings.llm_provider_chain or "groq,z_ai,gemini,local_rules"
+    names: List[str] = []
+    for part in raw.split(","):
+        name = part.strip().lower()
+        if name and name != "local_rules" and name not in names:
+            names.append(name)
+    return names
+
+
 async def generate_plan(
     observation: ObservationSnapshot,
     settings: Settings,
@@ -294,10 +333,22 @@ async def generate_plan(
     *,
     cycle_id: str = "unknown",
 ) -> ActionPlan:
-    """Ordered provider chain: z_ai → groq → gemini → local_rules (never raises)."""
+    """Ordered provider chain from settings, then local_rules (never raises)."""
     from .llm_reasoner import _run_plan_chain
 
-    for provider_name in ("z_ai", "groq", "gemini"):
+    for provider_name in _chain_provider_names(settings):
+        if _is_circuit_open(provider_name):
+            _emit_llm_event(
+                cycle_id,
+                EventType.LLM_PROVIDER_FAILED,
+                {
+                    "provider": provider_name,
+                    "error_class": "CircuitBreakerOpen",
+                    "http_status": 429,
+                },
+            )
+            continue
+
         started = time.perf_counter()
         try:
             provider = _provider_for_name(provider_name, settings)
@@ -341,6 +392,8 @@ async def generate_plan(
             return plan
         except Exception as exc:
             status_code = exc.status_code if isinstance(exc, LlmProviderError) else None
+            if status_code == 429:
+                _trip_circuit(provider_name)
             _emit_llm_event(
                 cycle_id,
                 EventType.LLM_PROVIDER_FAILED,

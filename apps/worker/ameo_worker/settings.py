@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     prompt_registry_path: str = Field("packages/prompts", alias="PROMPT_REGISTRY_PATH")
 
     memory_db_path: str = Field("data/ameo.db", alias="MEMORY_DB_PATH")
+    log_from_block: int = Field(0, alias="LOG_FROM_BLOCK")
     volatility_threshold_pct: float = Field(0.03, alias="VOLATILITY_THRESHOLD_PCT")
     agent_interval_sec: int = Field(60, alias="AGENT_INTERVAL_SEC")
 
@@ -103,6 +104,31 @@ class Settings(BaseSettings):
     max_daily_volume_usd: float = Field(500.0, alias="MAX_DAILY_VOLUME_USD")
     max_position_usd: float = Field(250.0, alias="MAX_POSITION_USD")
     prompt_set_version: str = Field("v1", alias="PROMPT_SET_VERSION")
+
+    http_timeout_sec: float = Field(10.0, alias="HTTP_TIMEOUT_SEC")
+
+    @model_validator(mode="after")
+    def validate_live_boot(self) -> Settings:
+        """Fail fast when live execution is enabled but critical secrets are missing."""
+        if not self.allows_live_execution():
+            return self
+
+        missing: list[str] = []
+        if not (self.agent_private_key or "").strip():
+            missing.append("AGENT_PRIVATE_KEY")
+        if not (self.treasury_eoa or "").strip():
+            missing.append("TREASURY_EOA")
+        if not (self.mantle_rpc_url or "").strip():
+            missing.append("MANTLE_RPC_URL")
+        if not (self.agent_identity_address or "").strip():
+            missing.append("AGENT_IDENTITY_ADDRESS")
+
+        if missing:
+            raise ValueError(
+                "Live worker boot blocked — missing required env: "
+                + ", ".join(missing)
+            )
+        return self
 
     def allows_live_execution(self) -> bool:
         """True when live CLI / chain execution is permitted (still subject to policy caps)."""

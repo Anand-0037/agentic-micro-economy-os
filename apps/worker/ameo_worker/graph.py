@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import random
 from typing import Any, Dict, List, TypedDict
 
@@ -9,6 +11,8 @@ from langgraph.graph import END, StateGraph
 from .adapters.mantle_dex import MantleDexAdapter
 from .clients.mantle import MantleClient
 from .clients.signals import SignalClient
+from .context import get_worker_context
+from .cycle_finalize import finalize_cycle_async
 from .models import ActionPlan, ExecutionResult, ObservationSnapshot
 from .policy import PolicyEngine, policy_config_from_settings
 from .settings import get_settings
@@ -17,9 +21,6 @@ from .services.delta_neutral_planner import build_delta_neutral_plan
 from .services.llm_reasoner import reason_action_plan
 from .services.llm_provider import LlmProviderError
 from .services.rules_planner import build_rules_action_plan
-from .services.memory_db import MemoryDB
-from .services.onchain_logger import OnchainLogger
-from .services.zero_g_storage import ZeroGAnchorResult, ZeroGStorageService
 from .services.guardrail_service import GuardrailService
 from .services.byreal_skill import ByrealSkillError, invoke_skill
 from .services.event_store import EventStore, EventType
@@ -39,8 +40,14 @@ class AgentState(TypedDict, total=False):
     zero_g: Dict[str, Any] | None
 
 
-def _memory() -> MemoryDB:
-    return MemoryDB(get_settings())
+def _ctx():
+    return get_worker_context()
+
+
+def _plan_hash(plan: ActionPlan) -> str:
+    payload = plan.model_dump(mode="json", exclude={"created_at"})
+    canonical = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 async def observe(state: AgentState) -> AgentState:
@@ -103,6 +110,10 @@ async def observe(state: AgentState) -> AgentState:
             for symbol, data in tickers.items():
                 if isinstance(data, dict) and "last_price" in data:
                     observation.prices[symbol] = data["last_price"]
+            # Normalize MNT price change for volatility planner (real signals for organic triggers)
+            mnt_ticker = tickers.get("MNTUSDT", {}) if isinstance(tickers, dict) else {}
+            if isinstance(mnt_ticker, dict):
+                observation.macro_signals["mnt_price_change_pct"] = mnt_ticker.get("price_change_pct", 0)
         except Exception:
             errors.append("bybit_signal_error")
 
@@ -110,6 +121,12 @@ async def observe(state: AgentState) -> AgentState:
         observation.macro_signals = {**observation.macro_signals, "errors": errors}
 
     cycle_id = state.get("cycle_id", "unknown")
+    block_number: int | None = None
+    try:
+        block_number = mantle.w3.eth.block_number
+    except Exception:
+        pass
+
     log_struct(
         "observe_complete",
         cycle_id=cycle_id,
@@ -126,6 +143,8 @@ async def observe(state: AgentState) -> AgentState:
             "quality": observation.observation_quality,
             "sources": observation.sources,
             "balances": observation.balances,
+            "gas_price_wei": observation.gas_price_wei,
+            "block_number": block_number,
             "errors": errors,
         },
     )
@@ -141,7 +160,7 @@ async def reason(state: AgentState) -> AgentState:
 
     settings = get_settings()
     pc = policy_config_from_settings(settings)
-    lessons = _memory().recent_failures(limit=5)
+    lessons = _ctx().memory.recent_failures(limit=5)
     cycle_id = state.get("cycle_id", "unknown")
     try:
         plan = await reason_action_plan(
@@ -265,16 +284,15 @@ def guardrail(state: AgentState) -> AgentState:
     # Check plan
     guardrail_ok, violations = service.check_plan(plan, observation)
 
-    # Handle rebalance requirement separately if needed (PolicyEngine logic)
-    engine = PolicyEngine(pc)
-    hedge_drift = observation.macro_signals.get("hedge_drift_pct")
-    if engine.should_force_rebalance(hedge_drift):
-        forced_plan = build_delta_neutral_plan(observation, get_settings())
-        if forced_plan:
-            guardrail_ok = True
-            violations = []
-            plan = forced_plan
-            plan.cycle_id = state.get("cycle_id")
+    # Delta-neutral hedging is currently disabled (see delta_neutral_planner.py).
+    # When supported primitives exist, re-enable here.
+    # engine = PolicyEngine(pc)
+    # hedge_drift = observation.macro_signals.get("hedge_drift_pct")
+    # if engine.should_force_rebalance(hedge_drift):
+    #     forced_plan = build_delta_neutral_plan(observation, get_settings())
+    #     if forced_plan:
+    #         ...
+
 
     # Emit event
     cycle_id = state.get("cycle_id", "unknown")
@@ -327,7 +345,7 @@ def act(state: AgentState) -> AgentState:
     )
 
     if settings.max_daily_volume_usd > 0 and notional > 0:
-        used = _memory().daily_notional_today()
+        used = _ctx().memory.daily_notional_today()
         if used + notional > settings.max_daily_volume_usd:
             log_struct(
                 "act_blocked",
@@ -370,12 +388,31 @@ def act(state: AgentState) -> AgentState:
         )
         return {"execution": execution, **state}
 
+    plan_hash = _plan_hash(plan)
+    if _ctx().memory.plan_executed_recently(plan_hash, within_minutes=5):
+        log_struct(
+            "act_idempotent_skip",
+            cycle_id=cycle_id,
+            correlation_id=plan.correlation_id,
+            plan_hash=plan_hash,
+        )
+        execution = ExecutionResult(
+            ok=True,
+            command="idempotent_skip",
+            dry_run=True,
+            error=None,
+            raw_output={"plan_hash": plan_hash, "reason": "duplicate_plan_within_5m"},
+            cycle_id=cycle_id,
+        )
+        return {"execution": execution, **state}
+
     adapter = MantleDexAdapter(settings)
     execution = adapter.execute_from_plan(state["plan"])
     execution.cycle_id = cycle_id
 
     if execution.ok and not execution.dry_run and notional > 0:
-        _memory().add_notional_usd(notional)
+        _ctx().memory.add_notional_usd(notional)
+        _ctx().memory.record_plan_execution(plan_hash, cycle_id)
 
     log_struct(
         "act_executed",
@@ -423,7 +460,7 @@ async def self_heal(state: AgentState) -> AgentState:
         retryable = True
 
     if not retryable:
-        _memory().record_learning(
+        _ctx().memory.record_learning(
             f"Critical failure: {plan.action_type} error={execution.error}"
         )
         return state
@@ -437,7 +474,7 @@ async def self_heal(state: AgentState) -> AgentState:
         if retry_execution.ok:
             return {"execution": retry_execution, "retry_count": attempt, **state}
 
-    _memory().record_learning(
+    _ctx().memory.record_learning(
         f"Critical failure after retries: {plan.action_type} error={execution.error}"
     )
     return state
@@ -449,93 +486,48 @@ def log(state: AgentState) -> AgentState:
     plan = state.get("plan")
     observation = state.get("observation")
     cycle_id = state.get("cycle_id", "unknown")
-    zero_g_data_hash: str | None = None
-    zero_g_state: Dict[str, Any] | None = None
-    anchor = ZeroGAnchorResult(root_hash=None, indexer_url=None, anchored=False)
     pnl_value = 0.0
 
     if plan and observation and execution:
         if isinstance(execution.raw_output, dict):
             pnl_value = float(execution.raw_output.get("pnl", 0) or 0)
-        _memory().record_execution(
+        _ctx().memory.record_execution(
             plan, observation, pnl_value, "ok" if execution.ok else "error"
         )
         if pnl_value < 0:
-            _memory().record_learning(
+            _ctx().memory.record_learning(
                 f"{plan.action_type} produced negative pnl {pnl_value}"
             )
 
-        events = EventStore().get_cycle_events(cycle_id)
-        trace_payload = {
-            "namespace": get_settings().zero_g_namespace or "ameo",
-            "cycle_id": cycle_id,
-            "observation": observation.model_dump(mode="json"),
-            "plan": plan.model_dump(mode="json"),
-            "execution": execution.model_dump(mode="json"),
-            "violations": state.get("violations", []),
-            "events": [event.model_dump(mode="json") for event in events],
-            "byreal_skill_result": state.get("byreal_skill_result"),
-        }
-        zero_g_service = ZeroGStorageService(get_settings())
-        anchor = zero_g_service.anchor_trace(trace_payload, cycle_id=cycle_id)
-        if anchor.anchored and anchor.root_hash:
-            zero_g_data_hash = anchor.root_hash
-            zero_g_state = {
-                "root_hash": anchor.root_hash,
-                "indexer_url": anchor.indexer_url,
-            }
-            log_payload["zero_g"] = zero_g_state
-            EventStore().emit(
-                cycle_id=cycle_id,
-                event_type=EventType.ZERO_G_ANCHOR_SUCCEEDED,
-                data={
-                    "root_hash": anchor.root_hash,
-                    "indexer_url": anchor.indexer_url,
-                },
-            )
-        else:
-            zero_g_state = None
-            if zero_g_service.is_configured():
-                log_payload["zero_g"] = {"status": "failed", "reason": "anchor_failed"}
-            else:
-                log_payload["zero_g"] = {"status": "skipped", "reason": "not_configured"}
-            EventStore().emit(
-                cycle_id=cycle_id,
-                event_type=EventType.ZERO_G_ANCHOR_FAILED,
-                data={"reason": log_payload["zero_g"]},
-            )
-
-    if (
-        execution
-        and plan
-        and state.get("guardrail_ok")
-        and plan.action_type != "no_op"
-    ):
-        settings = get_settings()
-        if settings.agent_identity_address and settings.agent_token_id >= 0:
-            rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
-            if anchor.anchored and anchor.root_hash:
-                metadata_uri = anchor.root_hash
-            else:
-                metadata_uri = ""
-            try:
-                logger = OnchainLogger(settings)
-                pnl1e18 = int(round(pnl_value * 1e18))
-                log_result = logger.log_decision(
-                    settings.agent_token_id,
-                    rationale_text,
-                    pnl1e18,
-                    plan.action_type,
-                    metadata_uri,
-                    zero_g_data_hash or "",
+        log_payload["zero_g"] = {"status": "pending", "reason": "background_anchor"}
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                finalize_cycle_async(
+                    cycle_id=cycle_id,
+                    plan=plan,
+                    observation=observation,
+                    execution=execution,
+                    violations=state.get("violations", []),
+                    byreal_skill_result=state.get("byreal_skill_result"),
+                    pnl_value=pnl_value,
                 )
-                log_payload["onchain"] = log_result
-            except Exception as exc:
-                log_payload["onchain_error"] = str(exc)
+            )
+        except RuntimeError:
+            asyncio.run(
+                finalize_cycle_async(
+                    cycle_id=cycle_id,
+                    plan=plan,
+                    observation=observation,
+                    execution=execution,
+                    violations=state.get("violations", []),
+                    byreal_skill_result=state.get("byreal_skill_result"),
+                    pnl_value=pnl_value,
+                )
+            )
 
     update_status(state.get("observation"), state.get("execution"))
 
-    # Emit final event
     EventStore().emit(
         cycle_id=cycle_id,
         event_type=EventType.CYCLE_COMPLETED,
@@ -545,7 +537,7 @@ def log(state: AgentState) -> AgentState:
         },
     )
 
-    return {"log": log_payload, "zero_g": zero_g_state, **state}
+    return {"log": log_payload, "zero_g": state.get("zero_g"), **state}
 
 
 def build_graph() -> Any:

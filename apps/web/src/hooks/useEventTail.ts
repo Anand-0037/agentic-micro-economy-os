@@ -11,6 +11,9 @@ export type EventLine = {
   [k: string]: unknown;
 };
 
+const MAX_BACKOFF_MS = 30_000;
+const BASE_BACKOFF_MS = 1000;
+
 export function useEventTail(workerUrl: string, limit = 200) {
   const [lines, setLines] = useState<EventLine[]>([]);
   const [idle, setIdle] = useState(false);
@@ -25,27 +28,58 @@ export function useEventTail(workerUrl: string, limit = 200) {
     setLines([]);
     setIdle(false);
 
-    const es = new EventSource(`${workerUrl.replace(/\/$/, "")}/api/events/tail?limit=${limit}`);
+    let es: EventSource | null = null;
+    let reconnectTimer: number | undefined;
+    let attempt = 0;
+    let cancelled = false;
 
-    es.onmessage = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.data) as EventLine;
-        if (parsed.type === "idle") {
-          setIdle(true);
-          return;
-        }
+    const connect = () => {
+      if (cancelled) return;
+
+      es = new EventSource(
+        `${workerUrl.replace(/\/$/, "")}/api/events/tail?limit=${limit}`,
+      );
+
+      es.onopen = () => {
+        attempt = 0;
         setIdle(false);
-        setLines((current) => [...current.slice(-limit + 1), parsed]);
-      } catch {
-        /* ignore malformed SSE payloads */
+      };
+
+      es.onmessage = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.data) as EventLine;
+          if (parsed.type === "idle") {
+            setIdle(true);
+            return;
+          }
+          setIdle(false);
+          setLines((current) => [...current.slice(-limit + 1), parsed]);
+        } catch {
+          /* ignore malformed SSE payloads */
+        }
+      };
+
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        setIdle(true);
+        if (cancelled) return;
+
+        const delay = Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
+        attempt += 1;
+        reconnectTimer = window.setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+      es?.close();
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
       }
     };
-
-    es.onerror = () => {
-      /* leave open; browser auto-reconnects */
-    };
-
-    return () => es.close();
   }, [workerUrl, limit]);
 
   return { lines, idle };

@@ -12,11 +12,12 @@
 - [Track 6 fit](./track-6-fit.md)
 - [Public-good statement](./public-good.md)
 
-## Surfaces shipped in W16
+## Surfaces shipped (honest, audited)
 
 | Surface | Location |
 | --- | --- |
-| REST API v1 | `GET /v1/verify/{txHash}`, `POST /v1/decisions`, … |
+| REST API v1 | `GET /v1/verify/{txHash}` (now honest partial-proof fallback), `POST /v1/decisions` |
 | TypeScript SDK | `packages/sdk` → `@ameo/sdk` |
 | MCP server | `packages/mcp` → `@ameo/mcp` |
-| Verified identity | `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197` on Mantle Sepolia |
+| Verified identity (ERC-8004-inspired) | `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197` on Mantle Sepolia |
+| Direct Mantle execution | Real web3 txs via Merchant Moe/FusionX (no fake hashes) |

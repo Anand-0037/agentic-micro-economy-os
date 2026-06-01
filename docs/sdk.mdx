@@ -19,7 +19,7 @@ const ameo = new AMEO({
 });
 
 const verified = await ameo.verify(
-  "0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8",
+  "{real_tx_from_latest_cycle}",
 );
 
 console.log(verified.decisionStatus, verified.mantlescanUrl);

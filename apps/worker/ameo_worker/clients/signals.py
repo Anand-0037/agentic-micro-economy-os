@@ -13,7 +13,8 @@ class SignalClient:
         self._settings = settings
 
     async def get_market_context(self) -> Dict[str, Any]:
-        async with httpx.AsyncClient(timeout=10) as client:
+        timeout = float(self._settings.http_timeout_sec)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             tickers_task = asyncio.gather(
                 self._fetch_ticker(client, "BTCUSDT"),
                 self._fetch_ticker(client, "MNTUSDT"),

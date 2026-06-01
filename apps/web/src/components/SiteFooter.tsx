@@ -1,10 +1,8 @@
-import { useDemoMode } from "../context/DemoModeContext";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 const githubUrl = runtimeConfig.githubUrl;
 
 export function SiteFooter() {
-  const { demoMode } = useDemoMode();
   const identityUrl = runtimeConfig.agentIdentityAddress
     ? `${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}`
     : undefined;
@@ -52,14 +50,32 @@ export function SiteFooter() {
                   </a>
                 </li>
               ) : null}
+              <li>
+                <a
+                  className="text-accent underline-offset-4 hover:underline"
+                  href={runtimeConfig.docsUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Docs
+                </a>
+              </li>
+              <li>
+                <a
+                  className="text-accent underline-offset-4 hover:underline"
+                  href={`${runtimeConfig.workerUrl.replace(/\/$/, "")}/v1/skills`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  API
+                </a>
+              </li>
             </ul>
           </div>
-          {!demoMode ? (
-            <p className="max-w-md text-sm text-muted">
-              Experimental Mantle testnet Narrative Console. Not financial advice. You are
-              responsible for keys, policy limits, and compliance.
-            </p>
-          ) : null}
+          <p className="max-w-md text-sm text-muted">
+            Experimental Mantle testnet Narrative Console. Not financial advice. You are
+            responsible for keys, policy limits, and compliance.
+          </p>
         </div>
       </div>
     </footer>

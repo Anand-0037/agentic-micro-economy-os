@@ -28,7 +28,7 @@ from .sentry_setup import init_sentry
 from .services.cycle_store import get_cycle, list_cycles
 from .services.decision_logs import fetch_decision_logs
 from .services.llm_provider import LlmProviderError, get_llm_provider, get_provider_chain_status
-from .services.zero_g_storage import ZeroGStorageService
+from .services.zero_g_storage import ZeroGStorageService, _zero_g_failure_reason
 from .services.memory_db import MemoryDB
 from .settings import get_settings
 from .state import get_status
@@ -56,6 +56,11 @@ app.include_router(v1_router)
 
 
 async def _scheduler_tick() -> None:
+    """Block B: 30-min production tick. Idempotent + non-blocking."""
+    if getattr(app.state, "_cycle_running", False):
+        logger.info("scheduler_tick skipped (cycle already running)")
+        return
+    app.state._cycle_running = True
     try:
         result = await run_cycle()
         cycle_id = result.get("cycle_id") or result.get("cycleId")
@@ -63,12 +68,14 @@ async def _scheduler_tick() -> None:
         logger.info("[INFO] scheduler_tick cycle=%s", cycle_id)
     except Exception as exc:
         logger.exception("scheduler_tick failed: %s", exc)
+    finally:
+        app.state._cycle_running = False
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_scheduler_tick, "interval", minutes=20, id="ameo_cycle_tick")
+    scheduler.add_job(_scheduler_tick, "interval", minutes=30, id="ameo_cycle_tick")  # Block B: 30-min production tick for reliable DecisionLogged history
     scheduler.start()
     app.state.scheduler = scheduler
 
@@ -79,6 +86,14 @@ async def on_shutdown() -> None:
     if scheduler is not None:
         scheduler.shutdown(wait=False)
 
+    deadline = time.monotonic() + 120
+    while getattr(app.state, "_cycle_running", False) and time.monotonic() < deadline:
+        logger.info("shutdown waiting for in-flight cycle to finish")
+        await asyncio.sleep(0.5)
+
+    if runner.running:
+        await runner.stop()
+
 
 @app.get("/")
 async def root() -> dict[str, Any]:
@@ -88,6 +103,31 @@ async def root() -> dict[str, Any]:
         "status": "ok",
         "last_cycle_id": app.state.last_cycle_id,
         "uptime_seconds": uptime,
+        "version": "0.2.0",
+    }
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    """Block B: simple health for Render / load balancers."""
+    return {"status": "ok"}
+
+
+@app.get("/v1/scheduler/status")
+async def scheduler_status() -> dict[str, Any]:
+    """Block B / B completeness: Reports on the production cycle scheduler for the Narrative Console idle message."""
+    scheduler = app.state.scheduler
+    next_run = None
+    if scheduler:
+        job = scheduler.get_job("ameo_cycle_tick")
+        if job:
+            next_run = job.next_run_time.isoformat() if job.next_run_time else None
+
+    return {
+        "enabled": scheduler is not None,
+        "interval_minutes": 30,
+        "last_cycle_id": app.state.last_cycle_id,
+        "next_scheduled_tick": next_run,
+        "uptime_seconds": int(time.monotonic() - app.state.app_start_monotonic),
     }
 
 
@@ -163,11 +203,6 @@ class Runner:
 runner = Runner()
 
 
-@app.get("/health")
-async def health() -> dict:
-    return {"status": "ok"}
-
-
 @app.get("/diagnostics/llm")
 async def diagnostics_llm() -> dict:
     """One-token LLM ping for the configured provider (no silent fallback)."""
@@ -241,10 +276,16 @@ async def stop_runner() -> dict:
 
 @app.post("/run-cycle")
 async def run_cycle_endpoint() -> dict:
-    result = await run_cycle()
-    cycle_id = result.get("cycle_id") or result.get("cycleId")
-    app.state.last_cycle_id = cycle_id
-    return result
+    if getattr(app.state, "_cycle_running", False):
+        raise HTTPException(status_code=409, detail="cycle_already_running")
+    app.state._cycle_running = True
+    try:
+        result = await run_cycle()
+        cycle_id = result.get("cycle_id") or result.get("cycleId")
+        app.state.last_cycle_id = cycle_id
+        return result
+    finally:
+        app.state._cycle_running = False
 
 
 @app.get("/api/policy")
@@ -330,7 +371,9 @@ async def events_tail(limit: int = 200):
             yield 'data: {"type":"idle","msg":"Worker idle — waiting for next cycle."}\n\n'
             return
 
-        with open(f, encoding="utf-8") as fh:
+        fh = None
+        try:
+            fh = open(f, encoding="utf-8")
             lines = fh.readlines()[-limit:]
             for line in lines:
                 if line.strip():
@@ -343,6 +386,11 @@ async def events_tail(limit: int = 200):
                         yield f"data: {line.strip()}\n\n"
                 else:
                     await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            if fh is not None:
+                fh.close()
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
@@ -391,7 +439,7 @@ async def api_zero_g_probe() -> dict[str, Any]:
             "rpc": settings.zero_g_rpc_url,
         }
     except Exception as exc:
-        return {"configured": True, "ok": False, "error": str(exc)}
+        return {"configured": True, "ok": False, "error": _zero_g_failure_reason(str(exc))}
 
 
 @app.get("/api/eval-report")

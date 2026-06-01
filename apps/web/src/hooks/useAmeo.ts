@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useAmeoUi } from "../context/AmeoUiContext";
+import { apiGet, apiPost, apiRequest } from "../lib/apiClient";
 
 export type StatusResponse = {
   updated_at?: string | null;
@@ -114,11 +115,7 @@ export function useAmeoQueries() {
         setStatusLoading(true);
       }
       try {
-        const response = await fetch(`${workerUrl}/api/status`);
-        if (!response.ok) {
-          throw new Error("Status fetch failed");
-        }
-        const payload = (await response.json()) as StatusResponse;
+        const payload = await apiGet<StatusResponse>(workerUrl, "/api/status", 5000);
         setStatus(payload);
         setStatusError(null);
       } catch {
@@ -136,11 +133,7 @@ export function useAmeoQueries() {
         setRunnerLoading(true);
       }
       try {
-        const response = await fetch(`${workerUrl}/api/runner`);
-        if (!response.ok) {
-          throw new Error("Runner fetch failed");
-        }
-        const payload = (await response.json()) as RunnerStatus;
+        const payload = await apiGet<RunnerStatus>(workerUrl, "/api/runner", 5000);
         setRunner(payload);
         setRunnerError(null);
       } catch {
@@ -164,22 +157,23 @@ export function useAmeoQueries() {
       }
       try {
         const params = new URLSearchParams({ from_block: logFromBlock });
-        const response = await fetch(`${workerUrl}/api/decisions?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error("Decisions fetch failed");
-        }
-        const payload = (await response.json()) as {
-          logs?: VerifiableLog[];
-          error?: string;
-        };
+        const payload = await apiGet<{ logs?: VerifiableLog[]; error?: string }>(
+          workerUrl,
+          `/api/decisions?${params.toString()}`,
+          8000,
+        );
         if (payload.error) {
           throw new Error(payload.error);
         }
         setLogs(payload.logs ?? []);
         setLogsError(null);
         setLogsLastSuccessAt(new Date().toISOString());
-      } catch {
-        setLogsError("Could not load on-chain decisions. Check worker connection in ⚙.");
+      } catch (err) {
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not load on-chain decisions. Check worker connection in ⚙.";
+        setLogsError(message);
       } finally {
         setLogsLoading(false);
       }
@@ -193,11 +187,7 @@ export function useAmeoQueries() {
         setHistoryLoading(true);
       }
       try {
-        const response = await fetch(`${workerUrl}/api/history`);
-        if (!response.ok) {
-          throw new Error("History fetch failed");
-        }
-        const payload = (await response.json()) as HistoryPayload;
+        const payload = await apiGet<HistoryPayload>(workerUrl, "/api/history", 8000);
         setHistory(payload.history ?? []);
         setLearnings(payload.learnings ?? []);
         setTrophy((current) => ({
@@ -216,11 +206,11 @@ export function useAmeoQueries() {
 
   const fetchPerformance = useCallback(async () => {
     try {
-      const response = await fetch(`${workerUrl}/api/performance`);
-      if (!response.ok) {
-        throw new Error("Performance fetch failed");
-      }
-      const payload = await response.json();
+      const payload = await apiGet<{ sharpe?: number; drawdown?: number }>(
+        workerUrl,
+        "/api/performance",
+        5000,
+      );
       setPerformance({
         sharpe: payload.sharpe ?? 0,
         drawdown: payload.drawdown ?? 0,
@@ -232,11 +222,7 @@ export function useAmeoQueries() {
 
   const fetchTrophy = useCallback(async () => {
     try {
-      const response = await fetch(`${workerUrl}/api/trophy`);
-      if (!response.ok) {
-        throw new Error("Trophy fetch failed");
-      }
-      const payload = (await response.json()) as Trophy;
+      const payload = await apiGet<Trophy>(workerUrl, "/api/trophy", 5000);
       setTrophy(payload);
     } catch {
       setTrophy((current) => current);
@@ -246,10 +232,7 @@ export function useAmeoQueries() {
   const startRunner = useCallback(async () => {
     setActionLoading(true);
     try {
-      const response = await fetch(`${workerUrl}/api/start`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Start failed");
-      }
+      await apiPost(workerUrl, "/api/start", 8000);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -261,17 +244,13 @@ export function useAmeoQueries() {
 
   const fetchLlmDiagnostics = useCallback(async () => {
     try {
-      const response = await fetch(`${workerUrl}/diagnostics/llm`);
-      if (!response.ok) {
-        throw new Error("LLM diagnostics unavailable");
-      }
-      const payload = (await response.json()) as {
+      const payload = await apiGet<{
         ok?: boolean;
         error?: unknown;
         active_provider?: string;
         available_providers?: string[];
         last_failover_at?: string | null;
-      };
+      }>(workerUrl, "/diagnostics/llm", 8000);
       const ok = Boolean(payload.ok);
       setLlmOk(ok);
       setLlmChain({
@@ -294,13 +273,11 @@ export function useAmeoQueries() {
 
   const fetchLlmChain = useCallback(async () => {
     try {
-      const response = await fetch(`${workerUrl}/api/llm-chain`);
-      if (!response.ok) return;
-      const payload = (await response.json()) as {
+      const payload = await apiGet<{
         active_provider?: string;
         available_providers?: string[];
         last_failover_at?: string | null;
-      };
+      }>(workerUrl, "/api/llm-chain", 5000);
       setLlmChain(payload);
     } catch {
       setLlmChain(null);
@@ -311,12 +288,9 @@ export function useAmeoQueries() {
     setActionLoading(true);
     try {
       if (runner.running) {
-        await fetch(`${workerUrl}/api/stop`, { method: "POST" });
+        await apiPost(workerUrl, "/api/stop", 8000);
       }
-      const response = await fetch(`${workerUrl}/api/start`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Restart failed");
-      }
+      await apiPost(workerUrl, "/api/start", 8000);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -329,10 +303,7 @@ export function useAmeoQueries() {
   const stopRunner = useCallback(async () => {
     setActionLoading(true);
     try {
-      const response = await fetch(`${workerUrl}/api/stop`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Stop failed");
-      }
+      await apiPost(workerUrl, "/api/stop", 8000);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -346,10 +317,7 @@ export function useAmeoQueries() {
     setActionLoading(true);
     setStatusError(null);
     try {
-      const response = await fetch(`${workerUrl}/run-cycle`, { method: "POST" });
-      if (!response.ok) {
-        throw new Error("Cycle trigger failed");
-      }
+      await apiPost(workerUrl, "/run-cycle", 15000);
       await Promise.all([
         fetchStatus(false),
         fetchLogs(false),
@@ -410,9 +378,9 @@ export function useAmeoQueries() {
     let cancelled = false;
     const ping = async () => {
       try {
-        const response = await fetch(`${workerUrl}/health`);
+        await apiRequest(workerUrl, "/health", { timeoutMs: 5000 });
         if (!cancelled) {
-          setHealthOk(response.ok);
+          setHealthOk(true);
         }
       } catch {
         if (!cancelled) {

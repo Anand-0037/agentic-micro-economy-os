@@ -1,0 +1,17 @@
+/home/anand0x/projects/hackathons/turing-test/agentic-micro-economy-os/apps/worker/.venv/lib/python3.12/site-packages/langgraph/cache/base/__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+  from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+INFO:     Started server process [32485]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56710 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56718 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56728 - "GET /v1/skills HTTP/1.1" 200 OK
+[WARN] zero_g_anchor_failed cycle=cyc_e9e03dd1 error_class=RuntimeError http_status=None msg=[36mINFO[0m[2026-05-28T08:48:55Z] Selecting nodes ...                          
+[36mINFO[0m[2026-05-28T08:48:56Z] Selected Nodes...                             [36mips[0m="[http://34.83.53.209:5
+INFO:     127.0.0.1:56734 - "POST /v1/cycles/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43276 - "GET /v1/decisions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [32485]

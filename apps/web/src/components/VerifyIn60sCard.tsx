@@ -1,20 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useCycle, useCyclesList } from "../hooks/useCycles";
 import { shortAddress, shortHash } from "../lib/dashboardFormat";
+import { runtimeConfig } from "../lib/runtimeConfig";
 import { Skeleton } from "./ui/Skeleton";
+
+const explorerBase = runtimeConfig.explorerBase;
+const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
+const workerBase = runtimeConfig.workerUrl.replace(/\/$/, "");
 
 type VerifyIn60sCardProps = {
   variant?: "landing" | "console";
-  demoMode?: boolean;
 };
-
-const explorerBase =
-  import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://sepolia.mantlescan.xyz";
-const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
-const zeroGIndexerBase =
-  import.meta.env.VITE_0G_INDEXER_URL ?? "https://indexer-storage-testnet-turbo.0g.ai";
 
 function normalizeTxHash(hash?: string | null): string | null {
   if (!hash) return null;
@@ -32,8 +30,9 @@ function buildVerificationBundle(detail: NonNullable<ReturnType<typeof useCycle>
   };
 }
 
-export function VerifyIn60sCard({ variant = "landing", demoMode = false }: VerifyIn60sCardProps) {
+export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<number>();
   const { data: listData, isLoading, isError } = useCyclesList(50, 0);
 
   const verifyCycle = useMemo(() => {
@@ -43,26 +42,24 @@ export function VerifyIn60sCard({ variant = "landing", demoMode = false }: Verif
 
   const { data: detail, isLoading: detailLoading } = useCycle(verifyCycle?.cycle_id);
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const identityUrl = agentIdentityAddress
     ? `${explorerBase}/address/${agentIdentityAddress}#code`
     : null;
 
   const txHash = normalizeTxHash(detail?.tx_hash?.hash ?? verifyCycle?.tx_hash);
   const txUrl = txHash ? `${explorerBase}/tx/${txHash}` : null;
-  const zeroGRoot =
-    (detail?.zero_g?.root_hash as string | undefined) ??
-    (detail?.decision_log?.dataHash as string | undefined) ??
-    null;
-  const zeroGUrl = zeroGRoot
-    ? `${zeroGIndexerBase.replace(/\/$/, "")}/file/${zeroGRoot}`
-    : null;
+  const apiVerifyUrl = txHash ? `${workerBase}/v1/verify/${txHash}` : null;
   const replayUrl = verifyCycle?.cycle_id
     ? `/app/replay?cycle=${encodeURIComponent(verifyCycle.cycle_id)}`
     : null;
-
-  if (demoMode && isError) {
-    return null;
-  }
 
   if (isError && import.meta.env.PROD) {
     return null;
@@ -87,7 +84,11 @@ export function VerifyIn60sCard({ variant = "landing", demoMode = false }: Verif
     if (!detail) return;
     await navigator.clipboard.writeText(JSON.stringify(buildVerificationBundle(detail), null, 2));
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
   };
 
   const card = (
@@ -159,22 +160,20 @@ export function VerifyIn60sCard({ variant = "landing", demoMode = false }: Verif
             3
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-ink">0G reasoning trace</p>
+            <p className="text-sm font-semibold text-ink">REST verify endpoint</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-52" />
-            ) : zeroGUrl && zeroGRoot ? (
+            ) : apiVerifyUrl && txHash ? (
               <a
                 className="mt-1 inline-flex font-mono text-xs text-accent underline-offset-4 hover:underline"
-                href={zeroGUrl}
+                href={apiVerifyUrl}
                 rel="noreferrer"
                 target="_blank"
               >
-                {shortHash(zeroGRoot)} ↗
+                GET /v1/verify/{shortHash(txHash)} ↗
               </a>
             ) : (
-              <p className="mt-1 text-xs text-muted">
-                No 0G Storage receipt anchored for this cycle yet.
-              </p>
+              <p className="mt-1 text-xs text-muted">No settlement tx to verify via API yet.</p>
             )}
           </div>
         </li>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { apiGet } from "../lib/apiClient";
+
 export type StackHealth = {
   worker: boolean | null;
   mantleRpc: boolean | null;
@@ -8,10 +10,8 @@ export type StackHealth = {
 
 async function pingWorker(baseUrl: string): Promise<boolean> {
   try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/health`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    return res.ok;
+    await apiGet(baseUrl, "/health", 5000);
+    return true;
   } catch {
     return false;
   }
@@ -19,11 +19,7 @@ async function pingWorker(baseUrl: string): Promise<boolean> {
 
 async function pingMantleRpc(workerUrl: string): Promise<boolean> {
   try {
-    const res = await fetch(`${workerUrl.replace(/\/$/, "")}/api/mantle-probe`, {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return false;
-    const json = (await res.json()) as { ok?: boolean };
+    const json = await apiGet<{ ok?: boolean }>(workerUrl, "/api/mantle-probe", 8000);
     return Boolean(json.ok);
   } catch {
     return false;
@@ -32,11 +28,11 @@ async function pingMantleRpc(workerUrl: string): Promise<boolean> {
 
 async function pingZeroG(workerUrl: string): Promise<boolean | null> {
   try {
-    const res = await fetch(`${workerUrl.replace(/\/$/, "")}/api/zero-g-probe`, {
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) return false;
-    const json = (await res.json()) as { configured?: boolean; ok?: boolean };
+    const json = await apiGet<{ configured?: boolean; ok?: boolean }>(
+      workerUrl,
+      "/api/zero-g-probe",
+      12000,
+    );
     if (json.configured === false) return null;
     return Boolean(json.ok);
   } catch {

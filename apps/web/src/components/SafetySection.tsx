@@ -29,18 +29,20 @@ export function SafetySection({
     <details className="soft-card group">
       <summary className="cursor-pointer list-none px-4 py-4 text-sm font-semibold text-ink marker:content-none sm:px-5">
         <span className="flex items-center justify-between gap-2">
-          <span>Safety &amp; market context</span>
+          <span>Policy guardrails &amp; market context</span>
           <span className="text-muted group-open:rotate-180 transition-transform" aria-hidden>
             ▸
           </span>
         </span>
         <p className="mt-1 text-xs font-normal text-muted">
-          Guardrails: {guardrails.length} active · Markets: BTC, MNT
+          {guardrails.length} active guardrails enforced before every execution · Live market signals
         </p>
       </summary>
 
       <div className="border-t border-border px-4 pb-5 pt-2 sm:px-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Guardrails</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+          Policy Guardrails (Enforced Outside LLM)
+        </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {guardrails.map((rail) => (
             <div key={rail.title} className="rounded-lg bg-neutral-100/80 p-3 dark:bg-neutral-800/40">

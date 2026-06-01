@@ -85,6 +85,9 @@ class CycleSummary(BaseModel):
     tx_hash: Optional[str] = None
     pnl_1e18: Optional[str] = None
     has_zero_g_receipt: bool = False
+    # Dynamic signals for UI (volatility rebalance or policy rejection) — computed from real plan/policy events, zero static
+    has_volatility_response: bool = False
+    has_policy_rejection: bool = False
 
 
 class CycleDetail(BaseModel):

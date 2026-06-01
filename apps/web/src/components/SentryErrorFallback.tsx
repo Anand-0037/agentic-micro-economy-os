@@ -24,5 +24,6 @@ export function SentryErrorFallback({ error, resetError }: Props) {
 }
 
 export function captureSentryTestError() {
-  Sentry.captureException(new Error("AMEO Sentry client test — delete me"));
+  if (!import.meta.env.DEV) return;
+  Sentry.captureException(new Error("AMEO Sentry client test — dev only"));
 }

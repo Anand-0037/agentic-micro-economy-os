@@ -14,8 +14,18 @@ from ..settings import Settings
 logger = logging.getLogger("ameo.zero_g")
 
 _ROOT_HASH_PATTERN = re.compile(
-    r"root(?:\s*hash)?\s*[:=]\s*(0x[a-fA-F0-9]+)", re.IGNORECASE
+    r"(?:root(?:\s*hash)?|merkle root calculated.*?root)\s*[:=]\s*(0x[a-fA-F0-9]+)",
+    re.IGNORECASE | re.DOTALL,
 )
+
+
+def _zero_g_failure_reason(output: str) -> str:
+    text = output.lower()
+    if "insufficient funds" in text:
+        return "ZERO_G wallet needs Galileo testnet gas to submit storage log entries"
+    if "not configured" in text:
+        return "0G Storage environment is incomplete"
+    return output.strip()[:200] or "0G Storage CLI upload failed"
 
 
 @dataclass
@@ -88,7 +98,16 @@ class ZeroGStorageService:
                 )
                 combined = f"{result.stdout}\n{result.stderr}"
                 if result.returncode != 0:
-                    raise RuntimeError(combined.strip() or "0G Storage CLI upload failed")
+                    stderr = (result.stderr or "").strip()
+                    stdout = (result.stdout or "").strip()
+                    logger.error(
+                        "zero_g_cli_failed cycle=%s rc=%s stderr=%s stdout=%s",
+                        cycle_id,
+                        result.returncode,
+                        stderr[:500],
+                        stdout[:200],
+                    )
+                    raise RuntimeError(_zero_g_failure_reason(f"{stdout}\n{stderr}"))
 
                 root_hash = parse_root_hash(combined)
                 if not root_hash:
@@ -110,6 +129,14 @@ class ZeroGStorageService:
             finally:
                 if temp_path is not None:
                     temp_path.unlink(missing_ok=True)
+        except subprocess.TimeoutExpired as exc:
+            stderr = (exc.stderr or "").strip() if isinstance(exc.stderr, str) else ""
+            logger.error(
+                "zero_g_cli_timeout cycle=%s stderr=%s",
+                cycle_id,
+                stderr[:500],
+            )
+            return ZeroGAnchorResult(root_hash=None, indexer_url=None, anchored=False)
         except Exception as exc:
             http_status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
             logger.warning(

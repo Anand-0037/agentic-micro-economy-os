@@ -1,33 +1,34 @@
-# Track 6 — Agentic Wallets & Economy
+# Track 6 — Agentic Wallets & Economy (honest fit)
 
-AMEO satisfies Track 6 by pairing an ERC-8004 agent identity with a Byreal Skills CLI execution surface and verifiable settlement on Mantle Sepolia.
+AMEO delivers a **verifiable autonomous treasury agent** for Track 6: persistent identity (ERC-8004-inspired NFT), policy-enforced decisioning, real on-chain settlement on Mantle Sepolia, and full cryptographic replay via events + 0G.
 
-## Byreal Skills CLI
+## Execution reality (no theater)
 
-- Worker log line: `[INFO] byreal_skill_invocation skill=mantle.swap.v1 …` in `apps/worker/ameo_worker/adapters/mantle_dex.py`
-- Replay node: **Execution · via Byreal Skills CLI** in `apps/web/src/components/CycleReplayCard.tsx`
-- Proof rail chip: `apps/web/src/components/MantleProofRail.tsx`
-- Registry endpoint: `GET /v1/skills` → `mantle.swap.v1` / `byreal-cli`
+- Primary path: Direct, audited `MantleDexAdapter` (web3.py) → Merchant Moe / FusionX routers.
+- Quote / skills surface: `mantle.swap.v1` telemetry (price signals only). Settlement always via direct FusionX V2 adapter in `mantle_dex.py`.
+- All labels in the live console now accurately say "Mantle DEX Execution".
+- The `/v1/skills` registry and event telemetry remain for future agentic wallet composability.
 
-## Agentic wallet
+## Agentic wallet + identity
 
-- Identity: `MantleAgentIdentity` at `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197`
-- Every cycle emits `DecisionLogged` under token id `0`
-- Treasury EOA rotated in W16 (public address in `.env.example`)
+- `MantleAgentIdentity` (ERC-8004-inspired) at `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197`
+- Successful policy-approved executions attempt `DecisionLogged` under the agent token.
+- `/v1/verify/{tx}` now returns full on-chain proof **or** transparent "execution evidence only" for older/partial cycles (radical transparency, not 404s).
 
-## Economy / protocol surfaces
+## Economy surfaces
 
-| File | Purpose |
+| Surface | Purpose |
 | --- | --- |
-| `apps/worker/ameo_worker/routes/v1.py` | Public REST API |
-| `packages/sdk` | `@ameo/sdk` TypeScript client |
-| `packages/mcp` | `@ameo/mcp` stdio MCP server |
-| `docs/api/v1.mdx` | API reference |
+| Worker + `/v1/*` | Observable, policy-gated agent loop |
+| `@ameo/sdk` + `@ameo/mcp` | Programmable + agent-native access |
+| Narrative Console | Judge-grade replay of every cognition step |
 
-## Verify endpoint for reviewers
+## Recommended reviewer command (fresh, working)
 
 ```bash
-curl -s https://agentic-micro-economy-os.onrender.com/v1/verify/0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8
+# 1. Hit the live console, trigger or watch a cycle, copy a real tx hash
+# 2. Verify it
+curl -s https://agentic-micro-economy-os.onrender.com/v1/verify/{real_tx_from_console}
 ```
 
-Returns rationale hash, action type, Mantlescan URL, and decision status in one JSON object.
+The response will clearly state proof type (`onchain_decision_logged` or `execution_evidence_only`).

@@ -160,7 +160,7 @@ def _derive_status(events: List[AgentEvent]) -> str:
     return "in_progress"
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=8)
 def _decision_log_index() -> Dict[str, Dict[str, Any]]:
     settings = get_settings()
     index: Dict[str, Dict[str, Any]] = {}
@@ -204,6 +204,16 @@ def _build_summary(
     if plan:
         action_type = str(plan.data.get("action_type") or "unknown")
 
+    # Detect interesting real behaviors from persisted plan + guardrail events (no demo, pure event data)
+    rationale_summary = ""
+    if plan:
+        rationale_summary = str(plan.data.get("rationale_summary") or plan.data.get("rationale") or "").lower()
+    has_vol = "volatility" in rationale_summary or "vol response" in rationale_summary
+
+    guardrail_event = _first_event(events, EventType.GUARDRAIL_EVALUATED)
+    violations = list(guardrail_event.data.get("violations", [])) if guardrail_event else []
+    has_reject = len(violations) > 0
+
     return CycleSummary(
         cycle_id=cycle_id,
         started_at=started.timestamp if started else events[0].timestamp,
@@ -213,6 +223,8 @@ def _build_summary(
         tx_hash=tx_hash,
         pnl_1e18=pnl_1e18,
         has_zero_g_receipt=has_zero_g,
+        has_volatility_response=has_vol,
+        has_policy_rejection=has_reject,
     )
 
 

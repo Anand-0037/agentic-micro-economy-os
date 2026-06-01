@@ -8,6 +8,6 @@ export const wagmiConfig = createConfig({
   chains: [mantleChain],
   connectors: [injected()],
   transports: {
-    [mantleChain.id]: fallback(mantleRpcUrls().map((url) => http(url))),
+    [mantleChain.id]: fallback(mantleRpcUrls().map((url) => http(url)), { rank: true }),
   },
 });

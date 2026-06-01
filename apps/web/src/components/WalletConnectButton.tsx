@@ -19,14 +19,26 @@ export function WalletConnectButton() {
     );
   }
 
+  if (!primary) {
+    return (
+      <button
+        className="btn-primary h-10 px-4 text-xs font-semibold opacity-60"
+        disabled
+        type="button"
+      >
+        No Wallet Found
+      </button>
+    );
+  }
+
   return (
     <button
       className="btn-primary h-10 px-4 text-xs font-semibold disabled:opacity-60"
-      disabled={isPending || !primary}
+      disabled={isPending}
       type="button"
-      onClick={() => primary && connect({ connector: primary })}
+      onClick={() => connect({ connector: primary })}
     >
-      {isPending ? "…" : primary ? "Connect" : "No wallet"}
+      {isPending ? "…" : "Connect"}
     </button>
   );
 }

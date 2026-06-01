@@ -1,17 +1,19 @@
 ---
-title: "Byreal Skills CLI integration"
-description: "How AMEO invokes a Byreal Skill each cycle and surfaces it in replay."
+title: "Execution & Skills Integration"
+description: "How AMEO performs real on-chain settlement and integrates external quote/skills surfaces (including Byreal where available)."
 ---
 
-A **Byreal Skill** is a named, versioned execution capability that an autonomous agent can invoke to move from an approved plan to a signed on-chain transaction. Skills wrap calldata construction, signing context, and broadcast semantics so operators can audit *what* ran without reading Python internals.
+AMEO's primary execution path is a direct, policy-gated web3 adapter (`MantleDexAdapter`) that signs and broadcasts real transactions to Merchant Moe / FusionX routers on Mantle Sepolia using the configured agent EOA.
 
-AMEO uses one primary skill today: `mantle.swap.v1`, executed through the Byreal Skills CLI label in the Narrative Console. The signing path is unchanged — the worker still uses the configured hot EOA (`AGENT_PRIVATE_KEY`) to broadcast on Mantle Sepolia — but every cycle emits a structured log line before signing:
+For observability and future agentic skills platforms, the worker also invokes `mantle.swap.v1` (via byreal-cli when present, or HTTP quote fallback) **in the planning/quote phase only**. This produces structured telemetry but does **not** perform the actual settlement. The real trade always goes through the audited direct adapter.
 
+Every cycle that reaches execution still emits:
 ```
-[INFO] byreal_skill_invocation skill=mantle.swap.v1 agent=<tokenId> target=<contract> action=<command>
+[INFO] byreal_skill_invocation skill=mantle.swap.v1 ...
 ```
+for tracing, and the replay UI labels the step accurately as "Mantle DEX Execution".
 
-That line appears in the worker telemetry stream and maps to the replay node **Execution · via Byreal Skills CLI**. The `/v1/skills` endpoint exposes the same registry for API and MCP clients.
+The `/v1/skills` endpoint continues to advertise registered capabilities for SDK/MCP consumers. Real Byreal Skills CLI execution (non-dry-run) will be wired when the CLI has stable Mantle support.
 
 ## Per-cycle flow
 

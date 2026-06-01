@@ -16,7 +16,7 @@ class EventType(str, Enum):
     CYCLE_COMPLETED = "cycle_completed"
     LLM_PROVIDER_FAILED = "llm_provider_failed"
     LLM_PROVIDER_SUCCEEDED = "llm_provider_succeeded"
-    BYREAL_SKILL_INVOKED = "byreal_skill_invoked"
+    BYREAL_SKILL_INVOKED = "byreal_quote_fetched"  # telemetry only — settlement is in mantle_dex.py
     ZERO_G_ANCHOR_SUCCEEDED = "zero_g_anchor_succeeded"
     ZERO_G_ANCHOR_FAILED = "zero_g_anchor_failed"
 
@@ -64,4 +64,27 @@ class EventStore:
                 event = AgentEvent.parse_raw(line)
                 if event.cycle_id == cycle_id:
                     events.append(event)
+        return events
+
+    def read_all(self) -> List[AgentEvent]:
+        """Load all events from all daily JSONL files (for verify fallback etc)."""
+        from pathlib import Path
+        events: List[AgentEvent] = []
+        log_dir = self.log_path
+        if not log_dir.is_dir():
+            return events
+        for path in sorted(log_dir.glob("events_*.jsonl")):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            events.append(AgentEvent.parse_raw(line))
+                        except Exception:
+                            continue
+            except Exception:
+                continue
+        events.sort(key=lambda e: e.timestamp)
         return events

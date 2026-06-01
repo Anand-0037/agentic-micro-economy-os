@@ -14,7 +14,8 @@ npm install @ameo/sdk
 import { AMEO } from "@ameo/sdk";
 
 const ameo = new AMEO({ baseUrl: "https://agentic-micro-economy-os.onrender.com" });
-const verified = await ameo.verify("0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8");
+// Use a real recent tx hash from the live console or /v1/decisions
+const verified = await ameo.verify("0xYOUR_REAL_TX_HASH_HERE");
 console.log(verified.decisionStatus, verified.mantlescanUrl);
 ```
 

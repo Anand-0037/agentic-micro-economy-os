@@ -23,6 +23,15 @@ export default defineConfig(({ mode }) => {
     plugins,
     build: {
       sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ["react", "react-dom", "react-router-dom"],
+            motion: ["framer-motion"],
+            web3: ["wagmi", "viem"],
+          },
+        },
+      },
     },
   };
 });

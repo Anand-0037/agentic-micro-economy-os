@@ -1,45 +1,45 @@
 import { Link } from "react-router-dom";
 
 import { CognitionTimeline } from "../components/CognitionTimeline";
+import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
+import { LiveProtocolStats } from "../components/LiveProtocolStats";
 import { MantleProofRail } from "../components/MantleProofRail";
 import { VerifyIn60sCard } from "../components/VerifyIn60sCard";
+import { Badge, BadgeVariant } from "../components/ui/Badge";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 const logoSrc = "/ameo-logo.png";
 
-const explorerBase =
-  import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://sepolia.mantlescan.xyz";
-const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
-
-const verifiedTxHash =
-  "0xdab19668f7c21501a01b04829b98cfbdb38f125fedabcb6cea86fbd6ec02ecf8";
-const verifiedTxUrl = `${explorerBase}/tx/${verifiedTxHash}`;
-
+// NOTE: This should be dynamically pulled from recent cycles with real txs.
+// Using a static old tx is risky after the verify hardening changes.
+// Dynamic proof cards — avoid any static old/broken tx hashes.
+// The VerifyIn60sCard below handles live recent cycles properly.
 const proofCards = [
   {
-    title: "Verifiable Cognition",
-    hash: verifiedTxHash,
-    href: verifiedTxUrl,
-    label: "Mantle settlement tx",
+    title: "On-chain identity",
+    label: "ERC-8004-inspired · Mantle Sepolia",
+    href: `${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}#code`,
   },
   {
-    title: "Hard Policy Guardrails",
-    hash: verifiedTxHash,
-    href: verifiedTxUrl,
-    label: "Policy-bound execution proof",
+    title: "Policy + skills API",
+    label: "Guardrails + registered capabilities",
+    href: `${runtimeConfig.workerUrl.replace(/\/$/, "")}/v1/policies`,
   },
   {
-    title: "0G Cryptographic Receipts",
-    hash: verifiedTxHash,
-    href: verifiedTxUrl,
-    label: "Explorer-verifiable receipt anchor",
+    title: "Live Narrative Console",
+    label: "Watch real cycles + replay any past decision",
+    href: "/app/replay",
+  },
+  {
+    title: "Full worker API",
+    label: "Verify, decisions, skills, agents",
+    href: `${runtimeConfig.workerUrl.replace(/\/$/, "")}/docs`,
   },
 ];
 
-const identityUrl = agentIdentityAddress
-  ? `${explorerBase}/address/${agentIdentityAddress}`
-  : `${explorerBase}/address/0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033`;
-
 export function LandingPage() {
+  const identityUrl = `${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}#code`;
+
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header className="border-b border-border bg-bg/95 backdrop-blur-sm">
@@ -52,12 +52,22 @@ export function LandingPage() {
             />
             <span className="font-display text-sm font-semibold tracking-tight">AMEO</span>
           </Link>
-          <Link
-            className="neo-button inline-flex h-10 items-center bg-accent px-4 text-sm font-semibold text-surface"
-            to="/app/replay"
-          >
-            Open Narrative Console
-          </Link>
+          <div className="flex items-center gap-3">
+            <a
+              className="hidden text-sm font-semibold text-muted hover:text-ink sm:inline"
+              href={runtimeConfig.docsUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Docs ↗
+            </a>
+            <Link
+              className="neo-button inline-flex h-10 items-center bg-accent px-4 text-sm font-semibold text-surface"
+              to="/app"
+            >
+              Open Console
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -66,27 +76,26 @@ export function LandingPage() {
         <section className="mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-12">
             <div>
-              <p className="mb-4 inline-block rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted">
-                Narrative Console · Mantle Sepolia
-              </p>
+          <div className="mb-4 flex flex-wrap gap-2">
+                <Badge variant={BadgeVariant.Chain}>Mantle Sepolia</Badge>
+                <Badge variant={BadgeVariant.Policy}>Policy Guardrails</Badge>
+                <Badge variant={BadgeVariant.Verified}>Verifiable Decisions</Badge>
+              </div>
               <h1 className="max-w-2xl font-display text-4xl font-semibold leading-tight md:text-5xl">
-                Autonomous agents should not operate in darkness.
+                Policy guardrails LLMs cannot bypass.
               </h1>
               <p className="mt-6 max-w-xl text-lg text-muted">
-                AMEO is the Narrative Console for verifiable AI economic agents. Observe,
-                reason, enforce policy, execute on-chain, and cryptographically prove why every
-                action happened.
+                Every decision produces a permanent, independently verifiable record on Mantle.
+                Policy enforcement happens outside the LLM — before execution, not after.
+                Radical transparency by default.
               </p>
-              <p className="mt-3 max-w-xl text-sm text-muted">
-                Open, MIT-licensed infrastructure built so any autonomous treasury — DAO,
-                foundation, microfinance pool — can be independently audited.
-              </p>
+              <LiveProtocolStats />
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
                   className="neo-button inline-flex h-12 items-center bg-accent px-6 text-sm font-semibold text-surface"
-                  to="/app/replay"
+                  to="/app"
                 >
-                  Watch a cognition cycle →
+                  Open treasury console →
                 </Link>
                 <a
                   className="inline-flex h-12 items-center px-2 text-sm font-semibold text-ink underline-offset-4 hover:underline"
@@ -94,38 +103,46 @@ export function LandingPage() {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  Verify on Mantle ↗
+                  Verify contract ↗
                 </a>
               </div>
             </div>
 
             <div className="min-w-0">
-              <CognitionTimeline autoLoop hideHeader pauseOnHover />
+              <LocalErrorBoundary title="Cognition timeline failed to render.">
+                <CognitionTimeline autoLoop hideHeader pauseOnHover />
+              </LocalErrorBoundary>
             </div>
           </div>
         </section>
 
         <MantleProofRail />
         <p className="mx-auto max-w-3xl px-4 pb-8 text-center text-sm text-muted md:px-6">
-          Survives any inference outage — when every LLM is down, the agent still enforces policy
-          and refuses to act. That is what safety looks like.
+          Policy enforcement outside the LLM. Every decision verifiable on-chain. When every provider
+          is down, the agent still enforces guardrails and refuses unsafe actions.
         </p>
 
         <section className="border-t border-border bg-surface py-14 md:py-16">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
-            <div className="grid gap-6 md:grid-cols-3">
+            <h2 className="font-display text-2xl font-semibold text-ink">
+              Verify any decision in 60 seconds
+            </h2>
+            <p className="mt-2 text-sm text-muted max-w-2xl">
+              Policy checks, execution traces, and rationale hashes — all independently verifiable
+              on Mantle. No mocks, no trust required.
+            </p>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {proofCards.map((card) => (
                 <article key={card.title} className="neo-card-sm p-5">
-                  <h2 className="font-display text-lg font-semibold text-ink">{card.title}</h2>
+                  <h3 className="font-display text-base font-semibold text-ink">{card.title}</h3>
                   <p className="mt-2 text-xs uppercase tracking-wider text-muted">{card.label}</p>
-                  <p className="mt-3 break-all font-mono text-[11px] text-ink/80">{card.hash}</p>
                   <a
                     className="mt-4 inline-flex text-sm font-semibold text-accent underline-offset-4 hover:underline"
                     href={card.href}
                     rel="noreferrer"
                     target="_blank"
                   >
-                    View on Mantlescan ↗
+                    Open ↗
                   </a>
                 </article>
               ))}
@@ -137,28 +154,31 @@ export function LandingPage() {
       <footer className="border-t border-border bg-sand py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
-            <p className="font-display font-semibold">AMEO · Narrative Console</p>
+            <p className="font-display font-semibold">AMEO · Policy-bound agents</p>
             <p className="mt-1 text-sm text-muted">
-              Trust infrastructure for verifiable autonomous finance on Mantle
+              Guardrails enforced outside the LLM · Verifiable on Mantle
             </p>
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
-            <Link className="hover:underline" to="/app/replay">
-              Replay
-            </Link>
             <Link className="hover:underline" to="/app">
               Console
             </Link>
+            <Link className="hover:underline" to="/app/replay">
+              Replay
+            </Link>
+            <a className="hover:underline" href={runtimeConfig.docsUrl} rel="noreferrer" target="_blank">
+              Docs
+            </a>
             <a
               className="hover:underline"
-              href="https://dorahacks.io/hackathon/mantleturingtesthackathon2026/detail"
+              href={`${runtimeConfig.workerUrl.replace(/\/$/, "")}/v1/skills`}
               rel="noreferrer"
               target="_blank"
             >
-              DoraHacks
+              API
             </a>
           </div>
-          <p className="text-xs text-muted">© 2026 AMEO · ERC-8004 identity · 0G receipts</p>
+          <p className="text-xs text-muted">© 2026 AMEO · MIT</p>
         </div>
       </footer>
     </div>

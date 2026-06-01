@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useSearchParams } from "react-router-dom";
-
-import { useDemoMode } from "../context/DemoModeContext";
 import { useEvalNav } from "../hooks/useEvalNav";
 import { useReplayNav } from "../hooks/useCycles";
 import { OperatorSettingsSheet } from "./OperatorSettingsSheet";
@@ -26,7 +24,6 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { demoMode } = useDemoMode();
   const { showEvalTab } = useEvalNav();
   const { showReplayTab } = useReplayNav();
   const identityConfigured = Boolean(import.meta.env.VITE_AGENT_IDENTITY_ADDRESS);
@@ -42,19 +39,19 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
 
   const navItems = useMemo(() => {
     const items: { segment: string; label: string }[] = [
-      { segment: "", label: "Console" },
+      { segment: "", label: "Treasury" },
     ];
     if (showReplayTab) {
       items.push({ segment: "replay", label: "Replay" });
     }
-    if (!demoMode && identityConfigured) {
+    if (identityConfigured) {
       items.push({ segment: "decisions", label: "Decisions" });
     }
-    if (!demoMode && showEvalTab) {
+    if (showEvalTab) {
       items.push({ segment: "eval", label: "Eval" });
     }
     return items;
-  }, [demoMode, identityConfigured, showEvalTab, showReplayTab]);
+  }, [identityConfigured, showEvalTab, showReplayTab]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -120,16 +117,14 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
             </nav>
 
             <div className="flex shrink-0 items-center gap-2">
-              {!demoMode ? (
-                <button
-                  type="button"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  aria-label="Open settings"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <SettingsIcon />
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                aria-label="Open settings"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <SettingsIcon />
+              </button>
               <WalletConnectButton />
               <button
                 type="button"
@@ -172,19 +167,17 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
               className="fixed right-0 top-0 z-50 flex h-full w-[min(100%,280px)] flex-col gap-1 border-l border-border bg-bg p-4 pt-20 shadow-xl lg:hidden"
             >
               {navLinks}
-              {!demoMode ? (
-                <button
-                  type="button"
-                  className="mt-2 inline-flex h-10 w-10 items-center justify-center rounded-md text-muted hover:bg-sand/80"
-                  aria-label="Open settings"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <SettingsIcon />
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="mt-2 inline-flex h-10 w-10 items-center justify-center rounded-md text-muted hover:bg-sand/80"
+                aria-label="Open settings"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setSettingsOpen(true);
+                }}
+              >
+                <SettingsIcon />
+              </button>
               <NavLink
                 className="mt-4 block text-sm text-muted underline-offset-4 hover:underline"
                 to="/"
