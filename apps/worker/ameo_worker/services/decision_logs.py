@@ -8,16 +8,18 @@ from ..settings import Settings
 
 logger = logging.getLogger(__name__)
 
-# Matches the deployed MantleAgentIdentity (0x8aC72a4B...4197) on Sepolia.
-# Event: DecisionLogged(uint256 indexed agentId, bytes32 rationaleHash, string actionType, string metadataUri, address operator)
+# Full event from updated MantleAgentIdentity.sol (ERC-8004 profile ready).
+# Supports both old V1 logs (pre-PnL) and new V2 with signedPnL1e18 + dataHash.
 _DECISION_LOGGED_EVENT_ABI = [
     {
         "anonymous": False,
         "inputs": [
             {"indexed": True, "name": "agentId", "type": "uint256"},
             {"indexed": False, "name": "rationaleHash", "type": "bytes32"},
+            {"indexed": False, "name": "signedPnL1e18", "type": "int256"},
             {"indexed": False, "name": "actionType", "type": "string"},
             {"indexed": False, "name": "metadataUri", "type": "string"},
+            {"indexed": False, "name": "dataHash", "type": "string"},
             {"indexed": False, "name": "operator", "type": "address"},
         ],
         "name": "DecisionLogged",
@@ -86,16 +88,21 @@ def fetch_decision_logs(settings: Settings, from_block: int = 0) -> List[Dict[st
     logs: List[Dict[str, Any]] = []
     for entry in reversed(entries):
         args = entry["args"]
-        metadata_uri = args.get("metadataUri", "")
+        metadata_uri = args.get("metadataUri", "") or ""
+        data_hash = args.get("dataHash", "") or ""
+        # Prefer explicit dataHash; fallback to metadata if it looks like root hash (for older logs)
+        if not data_hash and str(metadata_uri).startswith("0x"):
+            data_hash = metadata_uri
         logs.append(
             {
                 "txHash": _hex_value(entry.get("transactionHash")),
                 "agentId": str(args.get("agentId", settings.agent_token_id)),
                 "rationaleHash": _hex_value(args.get("rationaleHash")),
+                "signedPnL1e18": str(args.get("signedPnL1e18", 0)),
+                "pnl1e18": str(args.get("signedPnL1e18", 0)),  # compat for old VerifiableLog type
                 "actionType": args.get("actionType", ""),
                 "metadataUri": metadata_uri,
-                # 0G root is written into metadataUri when anchored.
-                "dataHash": metadata_uri if str(metadata_uri).startswith("0x") else "",
+                "dataHash": data_hash,
             }
         )
     return logs

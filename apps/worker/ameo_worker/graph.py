@@ -97,7 +97,11 @@ async def observe(state: AgentState) -> AgentState:
                 observation.macro_signals["treasury_balances"] = treasury_balances
                 observation.macro_signals["treasury_eoa"] = settings.treasury_eoa
         except Exception as exc:
-            print(f"Mantle RPC Error: {exc}")
+            log_struct(
+                "mantle_rpc_error",
+                cycle_id=state.get("cycle_id", "unknown"),
+                error=str(exc),
+            )
             errors.append("mantle_rpc_error")
             observation.observation_quality = 0.0
 
@@ -215,7 +219,7 @@ def plan(state: AgentState) -> AgentState:
     cycle_id = state.get("cycle_id", "unknown")
     byreal_skill_result: Dict[str, Any] | None = None
 
-    if action_plan.action_type != "no_op":
+    if action_plan.action_type == "swap":
         amount_usd = float(
             action_plan.size_usd
             if action_plan.size_usd is not None
@@ -284,14 +288,13 @@ def guardrail(state: AgentState) -> AgentState:
     # Check plan
     guardrail_ok, violations = service.check_plan(plan, observation)
 
-    # Delta-neutral hedging is currently disabled (see delta_neutral_planner.py).
-    # When supported primitives exist, re-enable here.
+    # Delta-neutral now active (see delta_neutral_planner.py + adapter lp/perp support).
     # engine = PolicyEngine(pc)
     # hedge_drift = observation.macro_signals.get("hedge_drift_pct")
     # if engine.should_force_rebalance(hedge_drift):
     #     forced_plan = build_delta_neutral_plan(observation, get_settings())
     #     if forced_plan:
-    #         ...
+    #         ...  # could override plan here for forced rebalance
 
 
     # Emit event

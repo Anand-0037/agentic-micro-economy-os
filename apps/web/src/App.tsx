@@ -23,7 +23,6 @@ export default function App() {
         <Route path="eval" element={<EvalPage />} />
         <Route path="replay" element={<ReplayPage />} />
       </Route>
-      <Route path="/demo/*" element={<Navigate replace to="/app" />} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
   );

@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 
 import { useCycle, useCyclesList } from "../hooks/useCycles";
 import { shortAddress, shortHash } from "../lib/dashboardFormat";
+import { archivedCycles, archivedVerificationBundle } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 import { Skeleton } from "./ui/Skeleton";
+import { useAgentProfile } from "../hooks/useAgentProfile";
 
 const explorerBase = runtimeConfig.explorerBase;
 const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
 const workerBase = runtimeConfig.workerUrl.replace(/\/$/, "");
+const workerApiKey = runtimeConfig.workerApiKey;
 
 type VerifyIn60sCardProps = {
   variant?: "landing" | "console";
@@ -31,16 +34,20 @@ function buildVerificationBundle(detail: NonNullable<ReturnType<typeof useCycle>
 }
 
 export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const timeoutRef = useRef<number>();
   const { data: listData, isLoading, isError } = useCyclesList(50, 0);
+  const { data: profile } = useAgentProfile();
 
   const verifyCycle = useMemo(() => {
+    if (isError) {
+      return archivedCycles.find((cycle) => cycle.tx_hash) ?? archivedCycles[0] ?? null;
+    }
     const cycles = listData?.cycles ?? [];
     return cycles.find((cycle) => cycle.tx_hash) ?? cycles[0] ?? null;
-  }, [listData?.cycles]);
+  }, [isError, listData?.cycles]);
 
-  const { data: detail, isLoading: detailLoading } = useCycle(verifyCycle?.cycle_id);
+  const { data: detail, isLoading: detailLoading } = useCycle(isError ? null : verifyCycle?.cycle_id);
 
   useEffect(() => {
     return () => {
@@ -61,34 +68,26 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
     ? `/app/replay?cycle=${encodeURIComponent(verifyCycle.cycle_id)}`
     : null;
 
-  if (isError && import.meta.env.PROD) {
-    return null;
-  }
-
-  if (isError) {
-    return (
-      <section
-        className={`neo-card-sm border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 ${
-          variant === "landing" ? "mx-auto max-w-6xl px-4 md:px-6" : ""
-        }`}
-        aria-live="polite"
-      >
-        Worker offline — verification card hidden in production.
-      </section>
-    );
-  }
-
-  const loading = isLoading || detailLoading || !verifyCycle;
+  const archived = isError;
+  const loading = !archived && (isLoading || detailLoading || !verifyCycle);
 
   const copyBundle = async () => {
-    if (!detail) return;
-    await navigator.clipboard.writeText(JSON.stringify(buildVerificationBundle(detail), null, 2));
-    setCopied(true);
+    const bundle = detail ? buildVerificationBundle(detail) : archived ? archivedVerificationBundle : null;
+    if (!bundle) return;
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2));
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
     
     if (timeoutRef.current) {
       window.clearTimeout(timeoutRef.current);
     }
-    timeoutRef.current = window.setTimeout(() => setCopied(false), 2000);
+    timeoutRef.current = window.setTimeout(() => setCopyStatus("idle"), 2500);
   };
 
   const card = (
@@ -104,7 +103,9 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
           Verify this project in 60 seconds.
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Open these four links in order. None of them are mocks.
+          {archived
+            ? "Live worker unavailable. Showing archived proof links from successful worker runs."
+            : "Open these four links in order. None of them are mocks."}
         </p>
       </header>
 
@@ -118,14 +119,21 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             {loading ? (
               <Skeleton className="mt-2 h-4 w-48" />
             ) : identityUrl ? (
-              <a
-                className="mt-1 inline-flex font-mono text-xs text-accent underline-offset-4 hover:underline"
-                href={identityUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {shortAddress(agentIdentityAddress)} ↗
-              </a>
+              <>
+                <a
+                  className="mt-1 inline-flex font-mono text-xs text-accent underline-offset-4 hover:underline"
+                  href={identityUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {shortAddress(agentIdentityAddress)} ↗
+                </a>
+                {profile?.capabilities && profile.capabilities.length > 0 && (
+                  <p className="mt-1 text-[10px] font-mono text-muted">
+                    Capabilities: <span className="text-[#3d7a5f] font-semibold">{profile.capabilities.join(", ")}</span>
+                  </p>
+                )}
+              </>
             ) : (
               <p className="mt-1 text-xs text-muted">Set VITE_AGENT_IDENTITY_ADDRESS to verify.</p>
             )}
@@ -147,7 +155,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
                 rel="noreferrer"
                 target="_blank"
               >
-                {shortHash(txHash ?? undefined)} · Cycle #{verifyCycle.cycle_id} ↗
+                {shortHash(txHash ?? undefined)} · {archived ? "Archived" : "Cycle"} #{verifyCycle.cycle_id} ↗
               </a>
             ) : (
               <p className="mt-1 text-xs text-muted">No on-chain tx recorded for the latest cycle yet.</p>
@@ -163,6 +171,10 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             <p className="text-sm font-semibold text-ink">REST verify endpoint</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-52" />
+            ) : archived ? (
+              <p className="mt-1 text-xs text-muted">
+                Live verify API is unavailable; copy the archived verification bundle below.
+              </p>
             ) : apiVerifyUrl && txHash ? (
               <a
                 className="mt-1 inline-flex font-mono text-xs text-accent underline-offset-4 hover:underline"
@@ -186,6 +198,10 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             <p className="text-sm font-semibold text-ink">Replay this cycle</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-40" />
+            ) : archived ? (
+              <p className="mt-1 text-xs text-muted">
+                Replay requires the live worker API; archived event proof is shown above.
+              </p>
             ) : replayUrl ? (
               <Link
                 className="mt-1 inline-flex text-xs font-semibold text-accent underline-offset-4 hover:underline"
@@ -203,19 +219,23 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
       <button
         type="button"
         className="neo-button mt-5 border-2 border-ink bg-sand px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink disabled:opacity-50"
-        disabled={!detail}
+        disabled={!detail && !archived}
         onClick={() => {
           void copyBundle();
         }}
       >
-        {copied ? "Copied" : "Copy verification bundle"}
+        {copyStatus === "copied"
+          ? "Copied"
+          : copyStatus === "failed"
+            ? "Copy failed"
+            : "Copy verification bundle"}
       </button>
     </section>
   );
 
   if (variant === "landing") {
     return (
-      <div className="border-b border-border bg-bg/95 md:sticky md:top-16 md:z-20 md:backdrop-blur-sm">
+      <div className="border-b border-border bg-bg/95">
         <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">{card}</div>
       </div>
     );

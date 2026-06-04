@@ -5,43 +5,49 @@ description: "System context, components, data model, and deployment topology fo
 
 Every component described here is implemented in this repository — not mocked for demos.
 
-## System context
+> **Full final architecture diagram, data flows, packages, deployment, and proof model**: see the [project README → Architecture section](https://github.com/Anand-0037/agentic-micro-economy-os/blob/main/README.md#architecture). The diagram and breakdown below are a concise system view.
+
+## System context (overview)
 
 ```mermaid
 flowchart TB
   subgraph operator
-    Op[Operator]
+    Op[Operator / Auditor]
   end
   subgraph frontend
-    UI[Web Console\nReact + wagmi]
+    UI[Web Narrative Console\nReact + wagmi + replay rail]
   end
   subgraph worker
-    LG[LangGraph Agent Loop]
-    POL[Policy Engine]
-    DEX[Mantle DEX Adapter]
-  end
-  subgraph chain
-    MNT[Mantle RPC]
-    ID[MantleAgentIdentity]
-    Router[Merchant Moe / FusionX]
+    API[FastAPI v1 + SSE]
+    LG[LangGraph: observe→reason→plan→guardrail→act→self_heal→log]
+    POL[Policy Engine + GuardrailService]
+    DEX[MantleDexAdapter]
+    FIN[finalize: 0G + onchain]
   end
   subgraph data
-    DB[(SQLite Memory)]
-    JSONL[(JSONL Event Log)]
+    DB[(SQLite MemoryDB)]
+    JSONL[(JSONL EventStore)]
+  end
+  subgraph ext
+    LLM[LLM chain + rules]
+    MNT[Mantle RPC + DEX + Identity]
+    ZG[0G Storage]
   end
   Op --> UI
-  UI --> LG
+  UI --> API
+  API --> LG
   LG --> POL
-  LG --> MNT
-  POL --> DEX
-  DEX --> Router
-  DEX --> MNT
-  LG --> ID
-  ID --> MNT
+  LG --> DEX
+  LG --> FIN
+  FIN --> ZG
+  FIN --> MNT
+  POL -.->|outside LLM| LG
   LG --> DB
   LG --> JSONL
-  DB --> UI
-  JSONL --> UI
+  DB --> API
+  JSONL --> API
+  API --> UI
+  MNT --> API
 ```
 
 ## Components
@@ -59,9 +65,9 @@ flowchart TB
 
 The LangGraph state machine in `apps/worker/ameo_worker/graph.py` runs:
 
-**observe → plan → guardrail → act → log**
+**observe → delta_neutral (lp/perps when vol) → reason → plan → guardrail → act → self_heal → log** (finalize runs async for 0G + onchain).
 
-Each transition emits structured events to `logs/events/events_*.jsonl`. The replay API (`GET /api/cycles/{id}`) reconstructs the nine-node verification rail in the web UI.
+Each transition emits structured events to `logs/events/events_*.jsonl`. The replay API (`GET /api/cycles/{id}`) + UI reconstructs the full verifiable cognition rail (observation through on-chain + 0G proof). See the [project README#architecture](https://github.com/Anand-0037/agentic-micro-economy-os/blob/main/README.md#architecture) for the detailed final diagram.
 
 ## Data model (minimal)
 

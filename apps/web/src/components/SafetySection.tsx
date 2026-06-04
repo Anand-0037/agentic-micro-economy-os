@@ -41,7 +41,7 @@ export function SafetySection({
 
       <div className="border-t border-border px-4 pb-5 pt-2 sm:px-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Policy Guardrails (Enforced Outside LLM)
+          Policy Guardrails (Enforced Outside LLM) — 7 total (3 shown; 4 silent)
         </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {guardrails.map((rail) => (
@@ -52,6 +52,23 @@ export function SafetySection({
             </div>
           ))}
         </div>
+
+
+        <details className="mt-2">
+          <summary className="text-xs text-muted cursor-pointer font-medium hover:text-ink">
+            + Show all 7 guardrails (others enforced silently)
+          </summary>
+          <ul className="mt-1 text-[10px] text-muted pl-4 list-disc space-y-0.5">
+            <li>✓ MaxDrawdownCheck</li>
+            <li>✓ AssetWhitelistCheck</li>
+            <li>✓ TradeSizeCheck</li>
+            <li>✓ GasBudgetCheck (enforced silently)</li>
+            <li>✓ MinimumBalanceCheck (enforced silently)</li>
+            <li>✓ SlippageToleranceCheck (enforced silently)</li>
+            <li>✓ ExecutionFrequencyCheck (enforced silently)</li>
+          </ul>
+        </details>
+
 
         <ActivePolicyCard rows={policyRows} loading={policyLoading} error={policyError} />
 

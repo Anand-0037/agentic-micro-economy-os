@@ -61,7 +61,7 @@ async def finalize_cycle_async(
         and ctx.onchain is not None
     ):
         rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
-        metadata_uri = anchor.root_hash if anchor.anchored and anchor.root_hash else ""
+        metadata_uri = anchor.root_hash if anchor.anchored and anchor.root_hash else "0g-upload-failed"
         try:
             pnl1e18 = int(round(pnl_value * 1e18))
             log_result = await asyncio.to_thread(
@@ -71,7 +71,7 @@ async def finalize_cycle_async(
                 pnl1e18,
                 plan.action_type,
                 metadata_uri,
-                zero_g_data_hash or "",
+                zero_g_data_hash or metadata_uri,
             )
             log_struct(
                 "onchain_decision_logged",

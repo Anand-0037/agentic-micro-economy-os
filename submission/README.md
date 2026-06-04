@@ -19,5 +19,10 @@
 | REST API v1 | `GET /v1/verify/{txHash}` (now honest partial-proof fallback), `POST /v1/decisions` |
 | TypeScript SDK | `packages/sdk` → `@ameo/sdk` |
 | MCP server | `packages/mcp` → `@ameo/mcp` |
-| Verified identity (ERC-8004-inspired) | `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197` on Mantle Sepolia |
-| Direct Mantle execution | Real web3 txs via Merchant Moe/FusionX (no fake hashes) |
+| Verified identity (ERC-8004-inspired) | `0xE6038881c6533D284906695A5708bC0954678945` on Mantle Sepolia |
+| Direct Mantle execution | Real web3 txs via FusionX V2 DEX (testnet fallbacks to treasury_ping logged honestly) |
+
+## Live worker notes (Render free tier)
+- Worker may cold-start (15-30s) on first access after idle. Refresh or wait for /health.
+- To force warm: `curl https://agentic-micro-economy-os.onrender.com/health`
+- For video/recording: run a cycle first to wake it, then demo fresh `/run-cycle`.

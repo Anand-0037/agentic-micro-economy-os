@@ -27,11 +27,27 @@ export async function apiRequest<T>(
   workerUrl: string,
   path: string,
   options: ApiRequestOptions = {},
+  apiKey?: string,
 ): Promise<T> {
+  const isForceArchived = typeof window !== "undefined" && (
+    new URLSearchParams(window.location.search).get("archived") === "1" ||
+    localStorage.getItem("ameo.force_archived") === "true"
+  );
+  if (isForceArchived) {
+    throw new ApiError(`Forced archived proof view enabled`, 503);
+  }
+
   const { method = "GET", body, timeoutMs = 8000, signal } = options;
+  const headers: Record<string, string> = {};
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (apiKey) {
+    headers["X-API-KEY"] = apiKey;
+  }
   const response = await fetch(resolveUrl(workerUrl, path), {
     method,
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal: signal ?? AbortSignal.timeout(timeoutMs),
   });
@@ -51,14 +67,16 @@ export function apiGet<T>(
   workerUrl: string,
   path: string,
   timeoutMs = 8000,
+  apiKey?: string,
 ): Promise<T> {
-  return apiRequest<T>(workerUrl, path, { timeoutMs });
+  return apiRequest<T>(workerUrl, path, { timeoutMs }, apiKey);
 }
 
 export function apiPost<T>(
   workerUrl: string,
   path: string,
   timeoutMs = 8000,
+  apiKey?: string,
 ): Promise<T> {
-  return apiRequest<T>(workerUrl, path, { method: "POST", timeoutMs });
+  return apiRequest<T>(workerUrl, path, { method: "POST", timeoutMs }, apiKey);
 }

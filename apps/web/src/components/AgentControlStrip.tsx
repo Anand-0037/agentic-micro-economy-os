@@ -83,7 +83,7 @@ export function AgentControlStrip({
               {zoneState === "loading"
                 ? "Checking worker…"
                 : zoneState === "error"
-                  ? "Worker offline"
+                  ? "Archived proof mode"
                   : zoneState === "bootstrap"
                     ? "Ready for first cycle"
                     : "Agent active"}
@@ -94,7 +94,8 @@ export function AgentControlStrip({
             <p className="text-sm text-muted">Connecting to the Python worker…</p>
           ) : zoneState === "error" ? (
             <p className="text-sm text-muted">
-              Start the worker API, then run a cycle. Open ⚙ for connection settings.
+              Showing the latest archived policy-bound runs while the live worker wakes up.
+              Open ⚙ to point the console at a different worker.
             </p>
           ) : zoneState === "bootstrap" ? (
             <p className="text-sm text-muted">
@@ -154,7 +155,7 @@ export function AgentControlStrip({
               void onRunCycle();
             }}
           >
-            {actionLoading ? "Running…" : "Run cycle"}
+            {actionLoading ? "Running…" : runCycleDisabled ? "Live worker unavailable" : "Run cycle"}
           </button>
           <p className="text-center text-[0.65rem] text-muted">
             AMEO #{agentTokenId}

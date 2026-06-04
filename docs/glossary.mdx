@@ -27,9 +27,9 @@ A boolean rule enforced before any transaction is signed. AMEO ships five: `draw
 
 Ethereum L2 testnet (chain id `5003`) where AMEO settles all reference transactions during this phase. Mainnet migration is in [roadmap](/roadmap).
 
-## Byreal Skills CLI (telemetry / quote surface)
+## Quote telemetry surface
 
-Byreal provides price quote and skill signals. AMEO uses the Byreal quote surface for market context in the planner. All actual on-chain settlement is performed by the direct MantleDexAdapter (FusionX V2 router). See the integration guide for details.
+AMEO uses a quote-only telemetry surface for market context in the planner. The surface can provide price signals and structured execution hints, but it never performs settlement. All actual on-chain settlement is performed by the direct MantleDexAdapter (FusionX V2 router). See the integration guide for details.
 
 ## Hot EOA
 

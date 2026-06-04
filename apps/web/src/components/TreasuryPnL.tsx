@@ -23,7 +23,8 @@ type TreasuryPnLProps = {
 function displayAssets(balances: Record<string, number>) {
   const rows: { symbol: string; amount: number | undefined }[] = [
     { symbol: "USDC", amount: balances.USDC },
-    { symbol: "WMNT", amount: balances.WMNT ?? balances.MNT },
+    { symbol: "WMNT", amount: balances.WMNT },
+    { symbol: "MNT", amount: balances.MNT },
   ];
   return rows.filter((row) => typeof row.amount === "number" && row.amount > 0);
 }
@@ -50,23 +51,27 @@ function TreasuryEmptyCard({
 }) {
   return (
     <div className="mt-4 rounded-lg border border-dashed border-border bg-neutral-50 p-4 text-sm">
-      <p className="font-medium text-ink">Treasury empty</p>
-      <p className="mt-2 text-muted">
-        Fund{" "}
-        <span className="font-mono text-ink">
-          {treasuryEoa ? shortAddress(treasuryEoa) : "treasury wallet"}
-        </span>{" "}
-        with testnet USDC to begin.
+      <p className="font-medium text-ink">Treasury (Testnet)</p>
+      <p className="text-amber-600 text-sm mt-2">
+        ⚠️ Testnet treasury empty - add MNT from Mantle faucet to see live cycles.
+        <br />
+        <span className="text-xs text-muted">Production agents would manage deposited funds.</span>
       </p>
-      {treasuryEoa ? (
-        <button
-          type="button"
-          className="btn-secondary mt-3 h-9 px-3 text-xs font-semibold"
-          onClick={onCopy}
-        >
-          {copied ? "Copied" : "Copy wallet address"}
-        </button>
-      ) : null}
+      <p className="mt-2 text-muted">
+        Treasury address:{" "}
+        <span className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onCopy}
+            className="font-mono text-ink underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink rounded px-0.5"
+            title="Click to copy full address"
+          >
+            {treasuryEoa ? shortAddress(treasuryEoa) : "treasury wallet"}
+          </button>
+          {copied ? <span className="text-[10px] text-ok">copied</span> : null}
+        </span>
+      </p>
+
     </div>
   );
 }
@@ -127,7 +132,21 @@ export function TreasuryPnL({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Treasury EOA</p>
             <h2 id="treasury-heading" className="mt-1 font-display text-lg font-semibold text-ink">
-              {treasuryEoa ? shortAddress(treasuryEoa) : "Treasury"}
+              {treasuryEoa ? (
+                <span className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void copyAddress()}
+                    className="font-mono text-lg hover:underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink rounded px-1 -mx-1"
+                    title="Click to copy full address"
+                  >
+                    {shortAddress(treasuryEoa)}
+                  </button>
+                  {copied ? <span className="text-[10px] text-ok">copied</span> : null}
+                </span>
+              ) : (
+                "Treasury"
+              )}
             </h2>
           </div>
           {heroTotal > 0 ? (

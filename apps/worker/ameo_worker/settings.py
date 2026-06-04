@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     treasury_private_key: str = Field("", alias="TREASURY_PRIVATE_KEY")
     agent_private_key: str = Field("", alias="AGENT_PRIVATE_KEY")
     agent_identity_address: str = Field(
-        "0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197", alias="AGENT_IDENTITY_ADDRESS"
+        "0xE6038881c6533D284906695A5708bC0954678945", alias="AGENT_IDENTITY_ADDRESS"
     )
     agent_token_id: int = Field(0, alias="AGENT_TOKEN_ID")
     agent_eoa: str = Field(
@@ -103,9 +103,14 @@ class Settings(BaseSettings):
     worker_mode: str = Field("live_limited", alias="WORKER_MODE")
     max_daily_volume_usd: float = Field(500.0, alias="MAX_DAILY_VOLUME_USD")
     max_position_usd: float = Field(250.0, alias="MAX_POSITION_USD")
+    max_drawdown_pct: float = Field(0.12, alias="MAX_DRAWDOWN_PCT")
+    asset_whitelist: str = Field("USDC,MNT,WMNT", alias="ASSET_WHITELIST")
     prompt_set_version: str = Field("v1", alias="PROMPT_SET_VERSION")
 
     http_timeout_sec: float = Field(10.0, alias="HTTP_TIMEOUT_SEC")
+
+    # API key for protecting /v1 endpoints (X-API-KEY header). If empty, v1 is open (dev mode).
+    api_key: str = Field("", alias="API_KEY")
 
     @model_validator(mode="after")
     def validate_live_boot(self) -> Settings:

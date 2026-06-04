@@ -72,7 +72,7 @@ type HistoryPayload = {
 const POLL_INTERVAL_MS = 15000;
 
 export function useAmeoQueries() {
-  const { workerUrl } = useAmeoUi();
+  const { workerUrl, workerApiKey } = useAmeoUi();
   const agentIdentityAddress = import.meta.env
     .VITE_AGENT_IDENTITY_ADDRESS as `0x${string}` | undefined;
   const agentTokenId = import.meta.env.VITE_AGENT_TOKEN_ID ?? "0";
@@ -115,7 +115,7 @@ export function useAmeoQueries() {
         setStatusLoading(true);
       }
       try {
-        const payload = await apiGet<StatusResponse>(workerUrl, "/api/status", 5000);
+        const payload = await apiGet<StatusResponse>(workerUrl, "/api/status", 5000, workerApiKey);
         setStatus(payload);
         setStatusError(null);
       } catch {
@@ -133,7 +133,7 @@ export function useAmeoQueries() {
         setRunnerLoading(true);
       }
       try {
-        const payload = await apiGet<RunnerStatus>(workerUrl, "/api/runner", 5000);
+        const payload = await apiGet<RunnerStatus>(workerUrl, "/api/runner", 5000, workerApiKey);
         setRunner(payload);
         setRunnerError(null);
       } catch {
@@ -161,6 +161,7 @@ export function useAmeoQueries() {
           workerUrl,
           `/api/decisions?${params.toString()}`,
           8000,
+          workerApiKey,
         );
         if (payload.error) {
           throw new Error(payload.error);
@@ -187,7 +188,7 @@ export function useAmeoQueries() {
         setHistoryLoading(true);
       }
       try {
-        const payload = await apiGet<HistoryPayload>(workerUrl, "/api/history", 8000);
+        const payload = await apiGet<HistoryPayload>(workerUrl, "/api/history", 8000, workerApiKey);
         setHistory(payload.history ?? []);
         setLearnings(payload.learnings ?? []);
         setTrophy((current) => ({
@@ -210,6 +211,7 @@ export function useAmeoQueries() {
         workerUrl,
         "/api/performance",
         5000,
+        workerApiKey,
       );
       setPerformance({
         sharpe: payload.sharpe ?? 0,
@@ -222,7 +224,7 @@ export function useAmeoQueries() {
 
   const fetchTrophy = useCallback(async () => {
     try {
-      const payload = await apiGet<Trophy>(workerUrl, "/api/trophy", 5000);
+      const payload = await apiGet<Trophy>(workerUrl, "/api/trophy", 5000, workerApiKey);
       setTrophy(payload);
     } catch {
       setTrophy((current) => current);
@@ -232,7 +234,7 @@ export function useAmeoQueries() {
   const startRunner = useCallback(async () => {
     setActionLoading(true);
     try {
-      await apiPost(workerUrl, "/api/start", 8000);
+      await apiPost(workerUrl, "/api/start", 8000, workerApiKey);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -250,7 +252,7 @@ export function useAmeoQueries() {
         active_provider?: string;
         available_providers?: string[];
         last_failover_at?: string | null;
-      }>(workerUrl, "/diagnostics/llm", 8000);
+      }>(workerUrl, "/diagnostics/llm", 8000, workerApiKey);
       const ok = Boolean(payload.ok);
       setLlmOk(ok);
       setLlmChain({
@@ -277,7 +279,7 @@ export function useAmeoQueries() {
         active_provider?: string;
         available_providers?: string[];
         last_failover_at?: string | null;
-      }>(workerUrl, "/api/llm-chain", 5000);
+      }>(workerUrl, "/api/llm-chain", 5000, workerApiKey);
       setLlmChain(payload);
     } catch {
       setLlmChain(null);
@@ -288,9 +290,9 @@ export function useAmeoQueries() {
     setActionLoading(true);
     try {
       if (runner.running) {
-        await apiPost(workerUrl, "/api/stop", 8000);
+        await apiPost(workerUrl, "/api/stop", 8000, workerApiKey);
       }
-      await apiPost(workerUrl, "/api/start", 8000);
+      await apiPost(workerUrl, "/api/start", 8000, workerApiKey);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -303,7 +305,7 @@ export function useAmeoQueries() {
   const stopRunner = useCallback(async () => {
     setActionLoading(true);
     try {
-      await apiPost(workerUrl, "/api/stop", 8000);
+      await apiPost(workerUrl, "/api/stop", 8000, workerApiKey);
       await fetchRunner(false);
       setRunnerError(null);
     } catch {
@@ -317,7 +319,7 @@ export function useAmeoQueries() {
     setActionLoading(true);
     setStatusError(null);
     try {
-      await apiPost(workerUrl, "/run-cycle", 15000);
+      await apiPost(workerUrl, "/run-cycle", 15000, workerApiKey);
       await Promise.all([
         fetchStatus(false),
         fetchLogs(false),
@@ -378,7 +380,7 @@ export function useAmeoQueries() {
     let cancelled = false;
     const ping = async () => {
       try {
-        await apiRequest(workerUrl, "/health", { timeoutMs: 5000 });
+        await apiRequest(workerUrl, "/health", { timeoutMs: 5000 }, workerApiKey);
         if (!cancelled) {
           setHealthOk(true);
         }

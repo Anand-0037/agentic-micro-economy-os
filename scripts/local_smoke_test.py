@@ -27,6 +27,7 @@ class FakeSettings(Settings):
     agent_token_id: int = 0
     live_enabled: bool = False
     max_daily_volume_usd: float = 100.0
+    max_position_usd: float = 250.0
     volatility_threshold_pct: float = 5.0
 
 def test_rules_planner():
@@ -39,14 +40,16 @@ def test_rules_planner():
     assert "micro" in plan.rationale.lower() or "policy" in plan.rationale.lower()
     print("  ✓ Rules planner produces a safe micro-swap plan")
 
-def test_delta_neutral_disabled():
-    print("Testing delta-neutral planner (should be disabled)...")
+def test_delta_neutral_now_active():
+    print("Testing delta-neutral planner (now emits real lp_add for high vol)...")
     settings = FakeSettings()
     obs = ObservationSnapshot(balances={"MNT": 10, "USDC": 100}, macro_signals={"tickers": {"MNTUSDT": {"price_change_pct": 12}}})
     
     plan = build_delta_neutral_plan(obs, settings)
-    assert plan is None, "Delta-neutral should return None until LP/perps are supported"
-    print("  ✓ Delta-neutral correctly returns None (no unsupported actions)")
+    assert plan is not None, "Delta-neutral should now emit lp_add (or bundle) when vol high"
+    assert plan.action_type in ("lp_add", "bundle"), f"Expected lp_add or bundle, got {plan.action_type}"
+    assert "vol" in (plan.rationale_summary or "").lower() or "delta" in (plan.rationale or "").lower()
+    print(f"  ✓ Delta-neutral active: emitted {plan.action_type} plan (size_usd={plan.size_usd})")
 
 def test_policy_engine():
     print("Testing policy engine...")
@@ -87,7 +90,7 @@ def main():
     
     try:
         test_rules_planner()
-        test_delta_neutral_disabled()
+        test_delta_neutral_now_active()
         test_policy_engine()
         print("\n✅ All smoke tests PASSED")
     except AssertionError as e:

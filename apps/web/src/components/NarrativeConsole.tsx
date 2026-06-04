@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useAmeoUi } from "../context/AmeoUiContext";
 import { useEventTail, type EventLine } from "../hooks/useEventTail";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
+import { archivedEventLines } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 function formatEventLine(event: EventLine): string {
@@ -11,10 +12,10 @@ function formatEventLine(event: EventLine): string {
   }
 
   const payload = event.data ? JSON.stringify(event.data) : "";
-  const isByrealQuote =
-    payload.includes("byreal_quote_fetched") ||
-    payload.includes("byreal_skill_invocation") || // legacy
-    (event.msg ?? "").includes("byreal_quote_fetched");
+  const isDexQuote =
+    payload.includes("dex_quote_fetched") ||
+    payload.includes("quote_fetched") ||
+    (event.msg ?? "").includes("dex_quote_fetched");
 
   const level =
     event.event_type === "action_failed" || event.event_type === "llm_provider_failed"
@@ -23,7 +24,7 @@ function formatEventLine(event: EventLine): string {
           event.event_type === "action_executed" ||
           event.event_type === "llm_provider_succeeded"
         ? "SUCCESS"
-        : isByrealQuote
+        : isDexQuote
         ? "TELEMETRY"
         : "INFO";
 
@@ -39,7 +40,7 @@ function formatEventLine(event: EventLine): string {
 function renderLogLine(line: string, index: number) {
   let textColor = "text-cream/90";
 
-  if (line.includes("[SUCCESS]") || line.includes("[OK]") || line.includes("byreal_skill")) {
+  if (line.includes("[SUCCESS]") || line.includes("[OK]") || line.includes("[ARCHIVE]")) {
     textColor = "text-green-400 font-semibold";
   } else if (line.includes("[WARN]")) {
     textColor = "text-[#f59e0b] font-semibold";
@@ -68,7 +69,11 @@ export function NarrativeConsole() {
   const { data: schedulerInfo } = useSchedulerStatus();
 
   const displayedLines =
-    lines.length > 0 ? lines.map(formatEventLine) : idle ? ["[INFO] Worker idle — waiting for next cycle."] : [];
+    lines.length > 0
+      ? lines.map(formatEventLine)
+      : idle
+        ? archivedEventLines
+        : [];
 
   const lastEvent = lines[lines.length - 1];
   const footerMeta = useMemo(() => {
@@ -107,7 +112,7 @@ export function NarrativeConsole() {
             </>
           ) : (
             <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-muted">
-              Idle
+              {lines.length > 0 ? "Idle" : "Archive"}
             </span>
           )}
         </div>
@@ -121,8 +126,10 @@ export function NarrativeConsole() {
             {(displayedLines.length + 1).toString().padStart(3, "0")}
           </span>
           <span className="animate-pulse font-semibold text-muted">
-            &gt; {idle || lines.length === 0 
-              ? `idle · 30min scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ''}` 
+            &gt; {idle || lines.length === 0
+              ? lines.length === 0
+                ? "archived worker events · live SSE unavailable"
+                : `idle · 30min scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ''}`
               : "streaming JSONL tail"}
           </span>
           <span

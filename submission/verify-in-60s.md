@@ -3,7 +3,7 @@
 **Core thesis:** Every material action by the agent is either (a) logged as a `DecisionLogged` event under the on-chain identity, or (b) has transparent local execution evidence with a real Mantle tx. The `/v1/verify` endpoint now surfaces both cases honestly.
 
 1. **Identity contract (ERC-8004-inspired, verified)**  
-   https://sepolia.mantlescan.xyz/address/0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197#code
+   https://sepolia.mantlescan.xyz/address/0xE6038881c6533D284906695A5708bC0954678945#code
 
 2. **Recent real settlement tx (with DecisionLogged when logging succeeded)**  
    Use any recent `action_executed` tx from the live console or run a fresh cycle.

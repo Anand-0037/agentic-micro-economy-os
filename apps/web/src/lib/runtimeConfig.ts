@@ -11,12 +11,12 @@ export const runtimeConfig = {
   mantleChainId: env.VITE_MANTLE_CHAIN_ID ?? "5003",
   explorerBase: env.VITE_MANTLE_EXPLORER_BASE ?? "https://sepolia.mantlescan.xyz",
   agentIdentityAddress:
-    env.VITE_AGENT_IDENTITY_ADDRESS ?? "0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197",
+    env.VITE_AGENT_IDENTITY_ADDRESS ?? "0xE6038881c6533D284906695A5708bC0954678945", // CRITICAL: must match worker AGENT_IDENTITY_ADDRESS and on-chain mint; set in Vercel for prod
   agentTokenId: env.VITE_AGENT_TOKEN_ID ?? "0",
   agentEoa: env.VITE_AGENT_EOA ?? "0xFB76C4B6912bCF358752Fb4b4b15B959EfaDD915",
   treasuryEoa: env.VITE_TREASURY_EOA ?? "",
   executionAdapter: env.VITE_EXECUTION_ADAPTER ?? "fusionx_v2",
-  executionAdapterLabel: env.VITE_EXECUTION_ADAPTER_LABEL ?? "Mantle DEX (Merchant Moe/FusionX)",
+  executionAdapterLabel: env.VITE_EXECUTION_ADAPTER_LABEL ?? "FusionX V2 DEX",
   fusionxRouter:
     env.VITE_FUSIONX_V2_ROUTER ?? "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033",
   llmProviderLabel: env.VITE_LLM_PROVIDER_LABEL ?? "z.ai",
@@ -31,6 +31,7 @@ export const runtimeConfig = {
   githubUrl: env.VITE_GITHUB_URL ?? "",
   docsUrl: env.VITE_DOCS_URL ?? "https://docs.ameo.agiwithai.com",
   workerUrl: env.VITE_WORKER_URL ?? "https://agentic-micro-economy-os.onrender.com",
+  workerApiKey: env.VITE_WORKER_API_KEY ?? "",
 } as const;
 
 const CRITICAL_ENV_KEYS = [

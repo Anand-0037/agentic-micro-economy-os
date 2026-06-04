@@ -3,20 +3,32 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..agent import run_cycle
-from ..policy import serialize_default_policy
+from ..policy import policy_config_from_settings, serialize_default_policy
 from ..services.cycle_store import cycle_metadata, get_cycle, list_cycles
 from ..services.decision_logs import fetch_decision_logs
 from ..services.event_store import EventStore, EventType
 from ..settings import get_settings
 
-# TODO(post-submission): API-key auth for production deployments.
 
-router = APIRouter(prefix="/v1", tags=["v1"])
+async def verify_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    """FastAPI dependency for optional X-API-KEY auth on /v1/*.
+    If API_KEY is set in env/settings, the header must match exactly.
+    If not set (dev/local), requests are allowed (preserves current behavior).
+    """
+    settings = get_settings()
+    if settings.api_key:
+        if not x_api_key or x_api_key != settings.api_key:
+            raise HTTPException(status_code=403, detail="Invalid or missing X-API-KEY")
+
+
+# TODO(post-submission) addressed: API-key auth via dependency (enforced only when API_KEY configured).
+
+router = APIRouter(prefix="/v1", tags=["v1"], dependencies=[Depends(verify_api_key)])
 
 POLICY_PREDICATES: list[dict[str, str]] = [
     {
@@ -58,6 +70,18 @@ POLICY_PREDICATES: list[dict[str, str]] = [
 
 SKILLS = [
     {"id": "mantle.swap.v1", "executor": "mantle-dex-adapter + byreal-quote-surface", "version": "0.2.0"},
+    {"id": "mantle.lp_add.v1", "executor": "mantle-dex-adapter (addLiquidity on FusionX)", "version": "0.3.0"},
+    {"id": "mantle.perps_hedge.v1", "executor": "mantle-dex-adapter (synthetic hedge proxy; full Orderly pending)", "version": "0.3.0"},
+]
+
+GUARDRAILS: list[str] = [
+    "MaxDrawdownCheck",
+    "AssetWhitelistCheck",
+    "TradeSizeCheck",
+    "GasBudgetCheck",
+    "MinimumBalanceCheck",
+    "SlippageToleranceCheck",
+    "ExecutionFrequencyCheck",
 ]
 
 
@@ -108,6 +132,28 @@ async def list_policies() -> dict[str, Any]:
     }
 
 
+@router.get("/config")
+async def get_config() -> dict[str, Any]:
+    """Single source of truth config for frontend policy UI (eliminates hardcoded drift).
+    Values come from worker settings + policy engine (the actual enforcement source).
+    """
+    settings = get_settings()
+    pc = policy_config_from_settings(settings)
+    asset_whitelist = list(pc.allowed_assets) or ["USDC", "MNT"]
+    llm_chain = [p.strip() for p in (settings.llm_provider_chain or "").split(",") if p.strip()]
+    return {
+        "guardrails": GUARDRAILS,
+        "max_position_usd": settings.max_position_usd,
+        "max_daily_volume_usd": settings.max_daily_volume_usd,
+        "volatility_threshold_pct": settings.volatility_threshold_pct,
+        "dex_slippage_bps": settings.dex_slippage_bps,
+        "llm_provider_chain": llm_chain,
+        "execution_adapter": settings.execution_adapter,
+        "asset_whitelist": asset_whitelist,
+        "max_drawdown_pct": pc.max_drawdown_pct,
+    }
+
+
 @router.post("/agents")
 async def register_agent() -> dict[str, Any]:
     """Return the deployed ERC-8004 identity (testnet identity is pre-provisioned)."""
@@ -129,11 +175,44 @@ async def get_agent(token_id: int) -> dict[str, Any]:
     if token_id != settings.agent_token_id:
         raise HTTPException(status_code=404, detail="agent_not_found")
     logs = fetch_decision_logs(settings)
+
+    total_pnl = "0"
+    capabilities = []
+    token_uri = ""
+
+    if settings.agent_identity_address:
+        try:
+            from ..clients.mantle import MantleClient
+            from ..services.onchain_logger import _AGENT_IDENTITY_ABI
+            mantle = MantleClient(settings)
+            w3 = mantle.w3
+            contract = w3.eth.contract(
+                address=w3.to_checksum_address(settings.agent_identity_address),
+                abi=_AGENT_IDENTITY_ABI,
+            )
+            profile = contract.functions.getAgentProfile(token_id).call()
+            total_pnl = str(profile[2])
+            last_cap = profile[5]
+            if last_cap:
+                capabilities = [last_cap]
+            else:
+                capabilities = []
+
+            try:
+                token_uri = contract.functions.tokenURI(token_id).call()
+            except Exception:
+                token_uri = f"https://docs.ameo.agiwithai.com/agents/{token_id}"
+        except Exception:
+            pass
+
     return {
         "tokenId": settings.agent_token_id,
         "ownerAddress": settings.agent_eoa or settings.treasury_eoa,
         "identityContract": settings.agent_identity_address,
         "decisionCount": len(logs),
+        "totalPnL": total_pnl,
+        "capabilities": capabilities,
+        "tokenURI": token_uri,
     }
 
 
@@ -236,34 +315,17 @@ async def get_decision(cycle_id: str) -> dict[str, Any]:
 
 @router.get("/verify/{tx_hash}")
 async def verify_decision(tx_hash: str, request: Request) -> dict[str, Any]:
-    """Judge-facing verification endpoint for a Mantle settlement transaction.
-
-    Honest behavior:
-    - First tries to find a DecisionLogged event on the ERC-8004-inspired identity contract.
-    - Falls back to local execution evidence (action_executed event with matching tx).
-      This makes old or partially-logged cycles still verifiable instead of 404ing.
-    """
+    """Judge-facing verification endpoint for a Mantle settlement transaction."""
     settings = get_settings()
     normalized = _normalize_tx(tx_hash)
 
-    # 1. Preferred: real on-chain DecisionLogged via identity contract
+    # 1. Look for on-chain DecisionLogged event
     logs = fetch_decision_logs(settings)
     matched = next((log for log in logs if _normalize_tx(log.get("txHash", "")) == normalized), None)
 
-    if matched:
-        return {
-            "txHash": normalized,
-            "mantlescanUrl": f"{_explorer_base(settings)}/tx/{normalized}",
-            "agentId": matched.get("agentId", str(settings.agent_token_id)),
-            "rationaleHash": matched.get("rationaleHash"),
-            "actionType": matched.get("actionType"),
-            "decisionStatus": "PASS",
-            "zeroGReceiptRoot": matched.get("dataHash") or None,
-            "proofType": "onchain_decision_logged",
-            "indexedAt": datetime.now(timezone.utc).isoformat(),
-        }
-
-    # 2. Honest fallback: we have local evidence of the execution tx (even if identity log missing)
+    # 2. Look for local execution evidence to get cycle_id and policy_results
+    cycle_id = "unknown"
+    detail = None
     try:
         events = EventStore().read_all()
         for ev in reversed(events):
@@ -271,27 +333,59 @@ async def verify_decision(tx_hash: str, request: Request) -> dict[str, Any]:
                 data = ev.data or {}
                 if _normalize_tx(data.get("tx_hash", "")) == normalized:
                     cycle_id = ev.cycle_id
-                    detail = get_cycle(cycle_id) if cycle_id else None
-                    return {
-                        "txHash": normalized,
-                        "mantlescanUrl": f"{_explorer_base(settings)}/tx/{normalized}",
-                        "agentId": str(settings.agent_token_id),
-                        "cycleId": cycle_id,
-                        "decisionStatus": "EXECUTED_ONCHAIN",
-                        "proofType": "execution_evidence_only",
-                        "note": "Execution tx confirmed in local event log. No matching DecisionLogged event found on the identity contract for this tx (pre-logging cycle, logging failure, or very old tx outside lookback). The settlement itself is real on Mantle.",
-                        "hasCycleDetail": bool(detail),
-                        "indexedAt": datetime.now(timezone.utc).isoformat(),
-                    }
+                    if cycle_id:
+                        detail = get_cycle(cycle_id)
+                    break
     except Exception as exc:
-        # Log for operators but still return a useful response
         import logging
         logging.getLogger(__name__).warning("verify_fallback_event_read_failed tx=%s error=%s", normalized, exc)
 
-    # 3. Last resort: still 404 but with clear guidance (no lying)
-    return _error_response(
-        404,
-        "tx_not_indexed",
-        f"No DecisionLogged and no local execution evidence for {normalized}. "
-        "Either the tx never ran through this worker, or it is extremely old.",
-    )
+    if not matched and not detail:
+        return _error_response(
+            404,
+            "tx_not_indexed",
+            f"No DecisionLogged and no local execution evidence for {normalized}. "
+            "Either the tx never ran through this worker, or it is extremely old.",
+        )
+
+    # 3. Extract requested fields
+    action_type = "unknown"
+    if matched:
+        action_type = matched.get("actionType") or action_type
+    elif detail and detail.decision_log:
+        action_type = detail.decision_log.get("actionType") or action_type
+
+    rationale_hash = "unknown"
+    if matched:
+        rationale_hash = matched.get("rationaleHash") or rationale_hash
+    elif detail and detail.decision_log:
+        rationale_hash = detail.decision_log.get("rationaleHash") or rationale_hash
+
+    raw_zero_g = None
+    if matched:
+        raw_zero_g = matched.get("metadataUri") or matched.get("dataHash")
+    elif detail and detail.decision_log:
+        raw_zero_g = detail.decision_log.get("dataHash") or detail.decision_log.get("metadataUri")
+
+    policy_results = []
+    if detail and detail.policy_checks:
+        for check in detail.policy_checks:
+            policy_results.append({
+                "rule": check.rule,
+                "passed": check.passed
+            })
+
+    response: dict[str, Any] = {
+        "cycle_id": cycle_id,
+        "action_type": action_type,
+        "policy_results": policy_results,
+        "rationale_hash": rationale_hash,
+        "execution_tx_hash": normalized,
+    }
+
+    if raw_zero_g == "0g-upload-failed" or not raw_zero_g:
+        response["zero_g_receipt"] = "Unavailable (upload timeout)"
+    else:
+        response["zero_g_root"] = raw_zero_g
+
+    return response

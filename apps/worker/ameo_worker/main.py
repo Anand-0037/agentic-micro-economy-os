@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -72,12 +73,38 @@ async def _scheduler_tick() -> None:
         app.state._cycle_running = False
 
 
+def _check_zero_g_binary() -> None:
+    """Pre-flight check for the 0G Storage CLI binary (critical for auditability trail).
+    If ZERO_G_CLI_PATH is configured but the binary is missing/not-executable, log a clear
+    actionable error so cycles don't fail silently on anchor.
+    """
+    try:
+        settings = get_settings()
+        cli = (settings.zero_g_cli_path or "").strip()
+        if not cli:
+            return
+        found = bool(shutil.which(cli) or (os.path.isfile(cli) and os.access(cli, os.X_OK)))
+        if not found:
+            logger.error(
+                "0G Storage CLI not found or not executable: %s . "
+                "Install the binary (see bin/0g-storage-client or https://docs.0g.ai) "
+                "and set ZERO_G_CLI_PATH, or unset ZERO_G_* to disable anchoring. "
+                "Without it, 0G receipts for verifiable cognition will be unavailable.",
+                cli,
+            )
+            # Do not crash startup; feature is optional but now explicitly warned.
+    except Exception as exc:  # never let preflight kill the worker
+        logger.warning("0G binary preflight check failed: %s", exc)
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
+    _check_zero_g_binary()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(_scheduler_tick, "interval", minutes=30, id="ameo_cycle_tick")  # Block B: 30-min production tick for reliable DecisionLogged history
     scheduler.start()
     app.state.scheduler = scheduler
+    logger.info("Scheduler started - next tick in 30 minutes")
 
 
 @app.on_event("shutdown")

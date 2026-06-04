@@ -30,7 +30,7 @@ function NumCard({
 }
 
 export function EvalPage() {
-  const { workerUrl } = useAmeoUi();
+  const { workerUrl, workerApiKey } = useAmeoUi();
   const [payload, setPayload] = useState<EvalPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +38,9 @@ export function EvalPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`${workerUrl}/api/eval-report`);
+        const res = await fetch(`${workerUrl}/api/eval-report`, {
+          headers: workerApiKey ? { "X-API-KEY": workerApiKey } : undefined,
+        });
         if (!res.ok) {
           throw new Error("Request failed");
         }
@@ -66,7 +68,7 @@ export function EvalPage() {
   const genAt = typeof report?.generated_at === "string" ? report.generated_at : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-6 md:pt-8 lg:px-8">
+    <div className="app-page mx-auto max-w-6xl px-4 pb-16 md:px-6 lg:px-8">
       <header className="mb-8 max-w-3xl space-y-2">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">Benchmarks</p>
         <h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">Eval</h1>

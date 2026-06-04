@@ -2,12 +2,19 @@ import type { CycleData } from "../components/CognitionTimeline";
 import type { CycleDetail } from "../hooks/useCycles";
 import { executionTargetLabel, runtimeConfig } from "./runtimeConfig";
 
+type AmeoConfigLike = {
+  max_drawdown_pct?: number;
+  max_position_usd?: number;
+  asset_whitelist?: string[];
+};
+
 export function mapCycleDetailToCycleData(
   detail: CycleDetail,
   options: {
     explorerBase: string;
     treasuryEoa: string;
     agentIdentityAddress: string;
+    ameoConfig?: Partial<AmeoConfigLike>;
   },
 ): CycleData {
   const { plan, policy_checks, observation, execution, tx_hash, summary, decision_log, zero_g } =
@@ -37,15 +44,18 @@ export function mapCycleDetailToCycleData(
         }
       : undefined;
 
+  const cfg = options.ameoConfig;
   const policy = {
-    maxDrawdownLimit: `${(runtimeConfig.volatilityThresholdPct * 100).toFixed(0)}% cap (dynamic)`,
+    maxDrawdownLimit: cfg?.max_drawdown_pct
+      ? `${(cfg.max_drawdown_pct * 100).toFixed(0)}% cap`
+      : `${(runtimeConfig.volatilityThresholdPct * 100).toFixed(0)}% cap (dynamic)`,
     drawdownPassed: !policy_checks.some(
       (check) => check.rule.toLowerCase().includes("drawdown") && !check.passed,
     ),
     whitelistPassed: !policy_checks.some(
       (check) => check.rule.toLowerCase().includes("whitelist") && !check.passed,
     ),
-    tradeSizeLimitUsd: runtimeConfig.maxTradeUsd,
+    tradeSizeLimitUsd: cfg?.max_position_usd || runtimeConfig.maxTradeUsd,
     planApproved: !anyReject,
   };
 
@@ -55,7 +65,9 @@ export function mapCycleDetailToCycleData(
         targetContract: execution.target_contract ?? executionTargetLabel(),
         actionDescription:
           plan.rationale_summary?.toString() ??
-          `${runtimeConfig.executionAdapterLabel}: ${summary.action_type || "swap"}`,
+          (summary.action_type === "treasury_ping"
+            ? "treasury_ping (testnet fallback - no DEX liquidity)"
+            : `${runtimeConfig.executionAdapterLabel}: ${summary.action_type || "swap"}`),
         signingKeyType: runtimeConfig.signingMethod,
         gasEstimateGwei: 28,
       }

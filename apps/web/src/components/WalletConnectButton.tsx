@@ -1,20 +1,36 @@
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useEnsName } from "wagmi";
+
+import { shortAddress } from "../lib/dashboardFormat";
 
 export function WalletConnectButton() {
-  const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { address, isConnected, isConnecting } = useAccount();
+  const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
-  const primary = connectors[0];
+  const { data: ensName } = useEnsName({ address: address ?? undefined });
+  const primary = connectors.find((c) => c.id === "injected") || connectors[0];
 
-  if (isConnected && address) {
+  if (isConnecting) {
     return (
       <button
-        className="btn-secondary h-10 px-3 text-xs font-semibold"
+        className="btn-secondary h-10 px-3 text-xs font-semibold opacity-60"
+        disabled
+        type="button"
+      >
+        Connecting…
+      </button>
+    );
+  }
+
+  if (isConnected && address) {
+    const display = ensName || shortAddress(address);
+    return (
+      <button
+        className="btn-secondary h-10 px-3 text-xs font-semibold font-mono"
         type="button"
         onClick={() => disconnect()}
-        title={address}
+        title={`Connected as ${address}. Click to disconnect.`}
       >
-        Wallet
+        {display}
       </button>
     );
   }
@@ -37,6 +53,7 @@ export function WalletConnectButton() {
       disabled={isPending}
       type="button"
       onClick={() => connect({ connector: primary })}
+      title={error ? error.message : undefined}
     >
       {isPending ? "…" : "Connect"}
     </button>

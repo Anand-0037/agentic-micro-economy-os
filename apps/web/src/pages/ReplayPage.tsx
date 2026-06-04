@@ -5,6 +5,7 @@ import { CycleReplayCard } from "../components/CycleReplayCard";
 import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
 import { useCycle, useCyclesList } from "../hooks/useCycles";
 import { shortHash } from "../lib/dashboardFormat";
+import { useAgentProfile } from "../hooks/useAgentProfile";
 
 const PAGE_SIZE = 20;
 
@@ -22,6 +23,7 @@ export function ReplayPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(0, Number(searchParams.get("page") ?? "0"));
   const selectedCycleId = searchParams.get("cycle");
+  const { data: profile } = useAgentProfile();
 
   const { data: listData, isLoading: listLoading, error: listError } = useCyclesList(
     PAGE_SIZE,
@@ -61,7 +63,7 @@ export function ReplayPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="mx-auto max-w-6xl min-w-0 px-4 pb-16 pt-6 md:px-6 md:pt-8 lg:px-8">
+    <div className="app-page mx-auto max-w-6xl min-w-0 px-4 pb-16 md:px-6 lg:px-8">
       <header className="mb-6 max-w-2xl">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">Narrative Console</p>
         <h1 className="font-display text-2xl font-semibold leading-tight text-ink sm:text-3xl">
@@ -70,6 +72,15 @@ export function ReplayPage() {
         <p className="mt-2 text-sm text-muted">
           Inspect every cognition cycle the worker has recorded — observation through cryptographic proof.
         </p>
+        {profile?.capabilities && profile.capabilities.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-mono">
+            {profile.capabilities.map((cap) => (
+              <span key={cap} className="bg-[#e2f0d9] px-2 py-0.5 border border-[#3d7a5f]/30 text-[#3d7a5f] rounded font-semibold">
+                Agent Capability: {cap}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_1fr]">

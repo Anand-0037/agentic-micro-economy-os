@@ -1,25 +1,25 @@
 ---
-title: "Execution & Skills Integration"
-description: "How AMEO performs real on-chain settlement and integrates external quote/skills surfaces (including Byreal where available)."
+title: "Execution & Quote Telemetry Integration"
+description: "How AMEO performs real on-chain settlement and integrates external quote telemetry surfaces without letting them touch execution."
 ---
 
-AMEO's primary execution path is a direct, policy-gated web3 adapter (`MantleDexAdapter`) that signs and broadcasts real transactions to Merchant Moe / FusionX routers on Mantle Sepolia using the configured agent EOA.
+AMEO's primary execution path is a direct, policy-gated web3 adapter (`MantleDexAdapter`) that signs and broadcasts real transactions to FusionX V2 router on Mantle Sepolia using the configured agent EOA (legacy Merchant Moe support in settings).
 
-For observability and future agentic skills platforms, the worker also invokes `mantle.swap.v1` (via byreal-cli when present, or HTTP quote fallback) **in the planning/quote phase only**. This produces structured telemetry but does **not** perform the actual settlement. The real trade always goes through the audited direct adapter.
+For observability and future agentic skills platforms, the worker also invokes `mantle.swap.v1` (via quote telemetry when present, or HTTP quote fallback) **in the planning/quote phase only**. This produces structured telemetry but does **not** perform the actual settlement. The real trade always goes through the audited direct adapter.
 
 Every cycle that reaches execution still emits:
 ```
-[INFO] byreal_skill_invocation skill=mantle.swap.v1 ...
+[INFO] quote_telemetry skill=mantle.swap.v1 ...
 ```
 for tracing, and the replay UI labels the step accurately as "Mantle DEX Execution".
 
-The `/v1/skills` endpoint continues to advertise registered capabilities for SDK/MCP consumers. Real Byreal Skills CLI execution (non-dry-run) will be wired when the CLI has stable Mantle support.
+The `/v1/skills` endpoint continues to advertise registered capabilities for SDK/MCP consumers. The quote surface remains non-settling by design.
 
 ## Per-cycle flow
 
 1. Observation and LLM planning produce an `ActionPlan`.
 2. The policy engine validates drawdown, asset whitelist, trade size, and gas guards.
-3. On approval, `MantleDexAdapter` logs `byreal_skill_invocation` and signs the transaction.
+3. On approval, `MantleDexAdapter` logs the quote telemetry event and signs the transaction.
 4. A `DecisionLogged` event is written under the ERC-8004 identity contract.
 
 Primary implementation: `apps/worker/ameo_worker/adapters/mantle_dex.py`.
@@ -34,7 +34,7 @@ To integrate:
 
 1. Define a skill id (for example `mantle.lend.v1`) and executor label.
 2. Implement quote/execute methods compatible with `MantleDexAdapter`.
-3. Register the skill in the worker skills list and document it in `docs/guides/byreal-skills-integration.mdx`.
+3. Register the skill in the worker skills list and document it in the execution telemetry guide.
 
 ## Verify settlement
 

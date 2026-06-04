@@ -53,8 +53,8 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
       { 
         id: "execution", 
         title: (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") 
-          ? "Execution · Volatility Rebalance (Mantle DEX)" 
-          : "Execution · Mantle DEX (Merchant Moe / FusionX)", 
+          ? "Execution · Volatility Rebalance (FusionX V2)" 
+          : "Execution · FusionX V2 DEX", 
         payload: detail.execution 
       },
       { id: "tx", title: "Settled on Mantle Sepolia", payload: detail.tx_hash },
@@ -65,8 +65,12 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
       },
       {
         id: "zerog",
-        title: "0G Storage receipt · indexer-verified",
-        payload: detail.zero_g ?? { note: "No 0G receipt anchored for this cycle" },
+        title: detail.zero_g?.root_hash
+          ? "0G Storage receipt · anchored ✓"
+          : "0G Storage · pending (testnet gas may be required)",
+        payload: detail.zero_g ?? {
+          note: "0G anchor pending - Galileo testnet may need gas. Execution still verifiable via Mantle tx.",
+        },
       },
     ],
     [detail],
@@ -252,6 +256,11 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                   {node.id === "policy" && detail.policy_checks?.some((c: any) => !c.passed) && (
                     <div className="mb-2 p-2 bg-red-50 border-2 border-red-500 text-red-700 text-[10px] font-mono">
                       ⚠️ POLICY REJECTION(S) DETECTED: Plan was blocked or adjusted by guardrails. Safety layer active.
+                    </div>
+                  )}
+                  {node.id === "zerog" && !detail.zero_g?.root_hash && (
+                    <div className="mb-2 p-2 bg-amber-50 border border-amber-400 text-amber-800 text-[10px] font-mono">
+                      0G anchor pending (testnet). Proof trail still verifiable via on-chain DecisionLogged + Mantle tx.
                     </div>
                   )}
 

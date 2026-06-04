@@ -9,20 +9,21 @@ import { TreasuryPnL } from "../components/TreasuryPnL";
 import { CognitionTimeline, type CycleData } from "../components/CognitionTimeline";
 import { NarrativeConsole } from "../components/NarrativeConsole";
 import { useAmeo } from "../context/AmeoDataContext";
-import { useAmeoUi } from "../context/AmeoUiContext";
 import { useSystemStatus } from "../hooks/useSystemStatus";
 import { useCyclesList, useCycle, type CycleSummary } from "../hooks/useCycles";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
-import { apiGet } from "../lib/apiClient";
+import { useAmeoConfig } from "../hooks/useAmeoConfig";
 import { mapCycleDetailToCycleData } from "../lib/cycleData";
 import { formatBalance, shortHash } from "../lib/dashboardFormat";
 import { isTreasuryEmpty, resolveBlockState } from "../lib/blockState";
-import { humanizePolicy, type PolicySnapshot } from "../lib/policyHumanize";
+import { humanizePolicy } from "../lib/policyHumanize";
+import { archivedCycles, archivedTreasuryBalances } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
-  const { data, isLoading } = useCyclesList(6, 0);
-  const cycles = data?.cycles ?? [];
+  const { data, isLoading, isError } = useCyclesList(6, 0);
+  const cycles = isError ? archivedCycles : (data?.cycles ?? []);
+  const archived = isError;
 
   if (isLoading) {
     return (
@@ -40,8 +41,16 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
   return (
     <div className="soft-card p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-display text-sm font-semibold text-ink">Recent real cycles</h3>
-        <a href="/app/decisions" className="text-[10px] text-accent underline">View all →</a>
+        <h3 className="font-display text-sm font-semibold text-ink">
+          {archived ? "Archived proof runs" : "Recent real cycles"}
+        </h3>
+        {archived ? (
+          <span className="border border-amber-400 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+            Live API unavailable
+          </span>
+        ) : (
+          <a href="/app/decisions" className="text-[10px] text-accent underline">View all →</a>
+        )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {cycles.map((c: CycleSummary) => {
@@ -69,25 +78,29 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
                 {verifyUrl && (
                   <a href={verifyUrl} target="_blank" rel="noreferrer" className="text-accent underline">MantleScan ↗</a>
                 )}
-                <a href={replayUrl} className="text-accent underline">Replay &amp; verify →</a>
+                {!archived ? (
+                  <a href={replayUrl} className="text-accent underline">Replay &amp; verify →</a>
+                ) : null}
               </div>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 text-[10px] text-muted">⚡ Volatility rebalances and ⚠️ policy rejections are computed from real plan/policy events in the worker and shown with badges here + dramatic callouts + credibility ladder in the full Replay view.</p>
+      <p className="mt-2 text-[10px] text-muted">
+        {archived
+          ? "Archived from local worker event logs so judges still see completed policy-bound runs when the live worker is asleep or unreachable."
+          : "⚡ Volatility rebalances and ⚠️ policy rejections are computed from real plan/policy events in the worker and shown with badges here + dramatic callouts + credibility ladder in the full Replay view."}
+      </p>
     </div>
   );
 }
 
 export function DashboardPage() {
   const controlRef = useRef<HTMLDivElement>(null);
-  const { workerUrl } = useAmeoUi();
   const { hasEverRun, cyclesCompleted, runCycleDisabled } = useSystemStatus();
-  const [policy, setPolicy] = useState<PolicySnapshot | null>(null);
-  const [policyLoading, setPolicyLoading] = useState(true);
 
   const { data: schedulerStatus } = useSchedulerStatus();
+  const { config: ameoConfig, isLoading: configLoading, isUsingFallback: configUsingFallback } = useAmeoConfig();
 
   const {
     status,
@@ -115,32 +128,10 @@ export function DashboardPage() {
   const latestCycleForTimeline = cyclesListForTimeline?.cycles?.[0]?.cycle_id;
   const { data: latestCycleDetail, isLoading: latestCycleDetailLoading } = useCycle(latestCycleForTimeline);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setPolicyLoading(true);
-      try {
-        const data = await apiGet<PolicySnapshot>(workerUrl, "/api/policy", 8000);
-        if (!cancelled) {
-          setPolicy(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setPolicy(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setPolicyLoading(false);
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [workerUrl]);
+  // Policy rows now sourced from /v1/config (ameoConfig) — single source of truth, no more separate /api/policy poll here.
 
-  const balances = status?.observation?.balances ?? {};
+  const liveBalances = status?.observation?.balances ?? {};
+  const balances = statusError ? archivedTreasuryBalances : liveBalances;
   const macroSignals = status?.observation?.macro_signals ?? {};
   const tickersRaw = (macroSignals as Record<string, unknown>).tickers ?? {};
   const fundingRaw = (macroSignals as Record<string, unknown>).funding ?? {};
@@ -161,7 +152,7 @@ export function DashboardPage() {
         hasEverRun: hasEverRun || !treasuryEmpty,
         loading: statusLoading,
         data: balances,
-        error: statusError ? "Could not load treasury from worker" : null,
+        error: null,
         bootstrapWhenEmpty: treasuryEmpty,
       }),
     [balances, hasEverRun, statusError, statusLoading, treasuryEmpty],
@@ -178,10 +169,18 @@ export function DashboardPage() {
     [cyclesCompleted, history, historyError, historyLoading],
   );
 
-  const policyRows = useMemo(
-    () => (policy ? humanizePolicy(policy) : []),
-    [policy],
-  );
+  const policyRows = useMemo(() => {
+    // Map /v1/config -> PolicyDisplayRow shape (for ActivePolicyCard)
+    const snap = {
+      max_drawdown_pct: ameoConfig.max_drawdown_pct,
+      max_position_usd: ameoConfig.max_position_usd,
+      max_asset_exposure_pct: 0.4,
+      hedge_drift_pct: 0.05,
+      allowed_assets: ameoConfig.asset_whitelist,
+      allowed_protocols: [],
+    };
+    return humanizePolicy(snap);
+  }, [ameoConfig]);
 
   const tickerItems = useMemo(() => {
     const t = tickersRaw as Record<string, { last_price?: number; volume_24h?: number }>;
@@ -195,43 +194,34 @@ export function DashboardPage() {
   }, [fundingRaw, tickersRaw]);
 
   const guardrails = useMemo(
-    () =>
-      cyclesCompleted > 0
-        ? [
-            {
-              title: "Max drawdown",
-              value: `${(performance.drawdown * 100).toFixed(1)}%`,
-              caption: "Hard stop at 12%.",
-            },
-            {
-              title: "Whitelist",
-              value: "USDC, MNT",
-              caption: "Operational asset set.",
-            },
-            {
-              title: "Mode",
-              value: "Live limited",
-              caption: "Policy-bound execution.",
-            },
-          ]
-        : [
-            {
-              title: "Max drawdown",
-              value: "12% cap",
-              caption: "Activates after first cycle.",
-            },
-            {
-              title: "Whitelist",
-              value: "USDC, MNT",
-              caption: "Operational asset set.",
-            },
-            {
-              title: "Mode",
-              value: "Live limited",
-              caption: "Python worker executes on Mantle.",
-            },
-          ],
-    [cyclesCompleted, performance.drawdown],
+    () => {
+      const ddCap = ameoConfig.max_drawdown_pct
+        ? `${(ameoConfig.max_drawdown_pct * 100).toFixed(0)}% cap`
+        : "12% cap";
+      const wl = (ameoConfig.asset_whitelist || ["USDC", "MNT"]).join(", ");
+      const pos = ameoConfig.max_position_usd
+        ? `$${ameoConfig.max_position_usd} max trade`
+        : "$250 max trade";
+      const base = [
+        {
+          title: "Max drawdown",
+          value: cyclesCompleted > 0 ? `${(performance.drawdown * 100).toFixed(1)}%` : ddCap,
+          caption: cyclesCompleted > 0 ? "Enforced by MaxDrawdownCheck" : `Hard stop at ${ddCap}.`,
+        },
+        {
+          title: "Whitelist",
+          value: wl,
+          caption: "Operational asset set (AssetWhitelistCheck).",
+        },
+        {
+          title: "Trade size",
+          value: pos,
+          caption: "Per TradeSizeCheck + daily volume cap.",
+        },
+      ];
+      return base;
+    },
+    [ameoConfig, cyclesCompleted, performance.drawdown],
   );
 
   const activeCycleData = useMemo<CycleData | undefined>(() => {
@@ -240,6 +230,7 @@ export function DashboardPage() {
         explorerBase,
         treasuryEoa,
         agentIdentityAddress,
+        ameoConfig,
       });
     }
 
@@ -274,10 +265,12 @@ export function DashboardPage() {
       : undefined;
 
     const policy = {
-      maxDrawdownLimit: `${(runtimeConfig.volatilityThresholdPct * 100).toFixed(0)}% cap (dynamic)`,
+      maxDrawdownLimit: ameoConfig.max_drawdown_pct
+        ? `${(ameoConfig.max_drawdown_pct * 100).toFixed(0)}% cap`
+        : `${(runtimeConfig.volatilityThresholdPct * 100).toFixed(0)}% cap (dynamic)`,
       drawdownPassed: true,
       whitelistPassed: true,
-      tradeSizeLimitUsd: runtimeConfig.maxTradeUsd,
+      tradeSizeLimitUsd: ameoConfig.max_position_usd || runtimeConfig.maxTradeUsd,
       planApproved: true,
     };
 
@@ -315,6 +308,7 @@ export function DashboardPage() {
     treasuryEoa,
     explorerBase,
     agentIdentityAddress,
+    ameoConfig,
   ]);
 
   const lastLog = logs[0];
@@ -327,14 +321,14 @@ export function DashboardPage() {
   const showVerifyCard = logs.length > 0 || Boolean(status?.last_execution?.tx_hash);
 
   return (
-    <div className="mx-auto max-w-6xl min-w-0 px-4 pb-16 pt-6 md:px-6 md:pt-8 lg:px-8">
+    <div className="app-page mx-auto max-w-6xl min-w-0 px-4 pb-16 md:px-6 lg:px-8">
       <header className="mb-6 max-w-2xl">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">Treasury · Mantle Sepolia</p>
         <h1 className="font-display text-2xl font-semibold leading-tight text-ink sm:text-3xl">
           Policy-bound treasury operations
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Every decision checked against 7 guardrails before execution. Independently verifiable on-chain.
+          Every decision checked against {ameoConfig.guardrails.length} guardrails before execution. Independently verifiable on-chain.
         </p>
       </header>
 
@@ -404,6 +398,9 @@ export function DashboardPage() {
               <span>Last impact:</span>
               <span className="font-semibold text-ink">
                 {latestCycleDetail.summary.action_type || "cycle"}
+                {latestCycleDetail.summary.action_type === "treasury_ping" && (
+                  <span className="ml-1 text-amber-600">(testnet fallback - no DEX liquidity)</span>
+                )}
               </span>
               <a
                 href={`${explorerBase}/tx/${latestCycleDetail.summary.tx_hash}`}
@@ -458,7 +455,7 @@ export function DashboardPage() {
           tickers={tickerItems}
           loading={statusLoading}
           policyRows={policyRows}
-          policyLoading={policyLoading}
+          policyLoading={configLoading}
           policyError={null}
         />
       </div>

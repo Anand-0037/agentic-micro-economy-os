@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class PolicyConfig:
     """Policy constraints for the agent."""
 
-    max_drawdown_pct: float = 0.2
+    max_drawdown_pct: float = 0.12
     max_position_usd: float = 1000.0
     max_asset_exposure_pct: float = 0.4
     hedge_drift_pct: float = 0.05
@@ -81,12 +81,17 @@ def policy_config_from_settings(settings: "Settings") -> PolicyConfig:
     max_pos = (
         settings.max_position_usd if settings.max_position_usd > 0 else base.max_position_usd
     )
+    max_dd = (
+        settings.max_drawdown_pct if settings.max_drawdown_pct > 0 else base.max_drawdown_pct
+    )
+    wl_raw = (settings.asset_whitelist or "").strip()
+    allowed = [a.strip().upper() for a in wl_raw.split(",") if a.strip()] if wl_raw else []
     return PolicyConfig(
-        max_drawdown_pct=base.max_drawdown_pct,
+        max_drawdown_pct=max_dd,
         max_position_usd=max_pos,
         max_asset_exposure_pct=base.max_asset_exposure_pct,
         hedge_drift_pct=base.hedge_drift_pct,
-        allowed_assets=base.allowed_assets,
+        allowed_assets=allowed or base.allowed_assets,
         allowed_protocols=base.allowed_protocols,
     )
 

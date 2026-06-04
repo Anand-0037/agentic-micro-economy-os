@@ -5,6 +5,7 @@ import { useReplayNav } from "../hooks/useCycles";
 import { OperatorSettingsSheet } from "./OperatorSettingsSheet";
 import { SettingsIcon } from "./ui/SettingsIcon";
 import { WalletConnectButton } from "./WalletConnectButton";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 const logoSrc = "/ameo-logo.png";
 
@@ -26,7 +27,7 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showEvalTab } = useEvalNav();
   const { showReplayTab } = useReplayNav();
-  const identityConfigured = Boolean(import.meta.env.VITE_AGENT_IDENTITY_ADDRESS);
+  const identityConfigured = Boolean(runtimeConfig.agentIdentityAddress);
 
   useEffect(() => {
     if (searchParams.get("settings") === "1") {
@@ -107,6 +108,17 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
                   <p className="truncate text-sm font-semibold">Narrative Console</p>
                 </div>
               </NavLink>
+              {identityConfigured && (
+                <a
+                  href={`${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1 rounded bg-[#e2f0d9] px-2 py-0.5 text-[10px] font-bold text-[#3d7a5f] border border-[#3d7a5f]/20 hover:bg-[#d6ebd0] transition-colors"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#3d7a5f]"></span>
+                  Identity Verified
+                </a>
+              )}
             </div>
 
             <nav

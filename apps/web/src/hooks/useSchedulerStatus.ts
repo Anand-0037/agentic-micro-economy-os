@@ -14,11 +14,11 @@ export type SchedulerStatus = {
 const REFETCH_MS = 30_000;
 
 export function useSchedulerStatus() {
-  const { workerUrl } = useAmeoUi();
+  const { workerUrl, workerApiKey } = useAmeoUi();
 
   return useQuery({
     queryKey: ["scheduler-status", workerUrl],
-    queryFn: () => apiGet<SchedulerStatus>(workerUrl, "/v1/scheduler/status"),
+    queryFn: () => apiGet<SchedulerStatus>(workerUrl, "/v1/scheduler/status", 8000, workerApiKey),
     refetchInterval: REFETCH_MS,
     staleTime: 10_000,
   });

@@ -14,7 +14,7 @@ export function DecisionsPage() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-6xl min-w-0 px-4 pb-16 pt-6 md:px-6 md:pt-8 lg:px-8">
+    <div className="app-page mx-auto max-w-6xl min-w-0 px-4 pb-16 md:px-6 lg:px-8">
       <header className="mb-6 max-w-3xl">
         <p className="text-xs uppercase tracking-[0.2em] text-muted">On-chain proof</p>
         <h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">Decisions</h1>

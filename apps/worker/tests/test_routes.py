@@ -15,7 +15,7 @@ def test_api_policy() -> None:
     response = client.get("/api/policy")
     assert response.status_code == 200
     body = response.json()
-    assert body["max_drawdown_pct"] == 0.2
+    assert body["max_drawdown_pct"] == 0.12
     assert "allowed_assets" in body
 
 

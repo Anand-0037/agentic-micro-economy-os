@@ -39,7 +39,7 @@ export function createServer() {
         },
       },
       { name: "list_policies", description: "List active policy predicates", inputSchema: { type: "object", properties: {} } },
-      { name: "list_skills", description: "List registered Byreal Skills", inputSchema: { type: "object", properties: {} } },
+      { name: "list_skills", description: "List registered execution skills", inputSchema: { type: "object", properties: {} } },
     ],
   }));
 

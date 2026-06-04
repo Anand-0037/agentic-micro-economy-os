@@ -93,7 +93,7 @@ class ZeroGStorageService:
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=self._settings.zero_g_timeout_sec,
+                    timeout=60,
                     check=False,
                 )
                 combined = f"{result.stdout}\n{result.stderr}"

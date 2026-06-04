@@ -1,19 +1,19 @@
-const explorerBase =
-  import.meta.env.VITE_MANTLE_EXPLORER_BASE ?? "https://sepolia.mantlescan.xyz";
-const treasuryEoa = import.meta.env.VITE_TREASURY_EOA;
-const agentIdentityAddress = import.meta.env.VITE_AGENT_IDENTITY_ADDRESS;
-const agentTokenId = import.meta.env.VITE_AGENT_TOKEN_ID ?? "0";
-const zeroGIndexerBase =
-  import.meta.env.VITE_0G_INDEXER_URL ?? "https://indexer-storage-testnet-turbo.0g.ai";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
-const FUSIONX_ROUTER = "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033";
+const explorerBase = runtimeConfig.explorerBase;
+const treasuryEoa = runtimeConfig.treasuryEoa;
+const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
+const agentTokenId = runtimeConfig.agentTokenId;
+const zeroGIndexerBase = runtimeConfig.zeroGIndexerUrl;
+
+const FUSIONX_ROUTER = runtimeConfig.fusionxRouter;
 
 const chips = [
   {
     icon: "🛡️",
     title: "Policy enforcement",
-    sub: "7 guardrails checked before every execution",
-    href: `${import.meta.env.VITE_WORKER_URL?.replace(/\/$/, "") ?? "http://localhost:8000"}/v1/policies`,
+    sub: "Guardrails enforced before every execution",
+    href: `${runtimeConfig.workerUrl.replace(/\/$/, "")}/v1/policies`,
   },
   {
     icon: "✓",

@@ -11,7 +11,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const distIndex = resolve(__dir, "../dist/index.html");
 const srcApp = resolve(__dir, "../src/App.tsx");
 
-const routes = ["/", "/app", "/app/replay", "/app?demo=1"];
+const routes = ["/", "/app", "/app/replay"];
 let failed = 0;
 
 function pass(msg) {

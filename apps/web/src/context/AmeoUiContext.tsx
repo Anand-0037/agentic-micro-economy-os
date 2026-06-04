@@ -13,6 +13,8 @@ const DEFAULT_WORKER =
 export type AmeoUiContextValue = {
   workerUrl: string;
   setWorkerUrl: (url: string) => void;
+  workerApiKey: string;
+  setWorkerApiKey: (key: string) => void;
 };
 
 const AmeoUiContext = createContext<AmeoUiContextValue | null>(null);
@@ -25,8 +27,17 @@ function readStoredWorkerUrl(): string {
   }
 }
 
+function readStoredApiKey(): string {
+  try {
+    return localStorage.getItem("ameo.worker_api_key") ?? (import.meta.env.VITE_WORKER_API_KEY ?? "");
+  } catch {
+    return import.meta.env.VITE_WORKER_API_KEY ?? "";
+  }
+}
+
 export function AmeoUiProvider({ children }: { children: ReactNode }) {
   const [workerUrl, setWorkerUrlState] = useState(readStoredWorkerUrl);
+  const [workerApiKey, setWorkerApiKeyState] = useState(readStoredApiKey);
 
   const setWorkerUrl = useCallback((url: string) => {
     setWorkerUrlState(url);
@@ -37,9 +48,18 @@ export function AmeoUiProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setWorkerApiKey = useCallback((key: string) => {
+    setWorkerApiKeyState(key);
+    try {
+      localStorage.setItem("ameo.worker_api_key", key);
+    } catch {
+      /* ignore quota */
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ workerUrl, setWorkerUrl }),
-    [workerUrl, setWorkerUrl],
+    () => ({ workerUrl, setWorkerUrl, workerApiKey, setWorkerApiKey }),
+    [workerUrl, setWorkerUrl, workerApiKey, setWorkerApiKey],
   );
 
   return (

@@ -17,18 +17,18 @@ An official SDK wraps the `/v1` API with a typed client for agent registration, 
 Connect AMEO to Claude Desktop, Cursor, and other MCP hosts. The server exposes verify, decisions, and agent tools so you can audit on-chain decisions from your editor or chat. See the [MCP setup guide](/mcp).
 
 **`/v1/skills` endpoint**
-The Byreal Skills registry is now queryable over HTTP, MCP, and SDK. Discover which execution skills (for example `mantle.swap.v1`) an agent can invoke. See the [Byreal Skills integration guide](/guides/byreal-skills-integration).
+The execution-skill registry is now queryable over HTTP, MCP, and SDK. Discover which execution skills (for example `mantle.swap.v1`) an agent can invoke. See the [execution and quote telemetry integration guide](/guides/execution-quote-telemetry-integration).
 
 ## Improvements
 
-**Byreal execution visibility**
-Every cycle now emits a structured `byreal_skill_invocation` log line before signing and surfaces it in the replay view as **Execution · via Byreal Skills CLI**. Operators can audit *what* ran without reading worker internals.
+**Quote telemetry visibility**
+Every cycle now emits a structured quote-telemetry log line before signing and surfaces it in the replay view as the execution planning step. Operators can audit *what* ran without reading worker internals.
 
 **Render reliability**
 Background keepalive keeps the hosted worker warm, reducing cold-start delays on the public endpoint.
 
 **Canonical environment alignment**
-The dashboard, worker, and SDK now read a consistent runtime configuration, removing drift between hosted, demo, and local deployments. See [Run locally](/guides/run-locally).
+The dashboard, worker, and SDK now read a consistent runtime configuration, removing drift between hosted and local deployments. See [Run locally](/guides/run-locally).
 
 ## Fixes
 

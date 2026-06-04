@@ -60,7 +60,7 @@ def build_rules_action_plan(
         )
         return ActionPlan(
             action_type="swap",
-            protocol="merchant_moe",
+            protocol="fusionx_v2",
             asset_in="MNT",
             asset_out="WMNT",
             size_usd=swap_amount,
@@ -78,14 +78,14 @@ def build_rules_action_plan(
     swap_amount = min(0.00015, max(0.00005, mnt_balance * 0.04))
     rationale = (
         "Rules fallback (LLM providers rate-limited or unavailable): Executing a "
-        "policy-capped micro MNT→WMNT wrap on Merchant Moe. This keeps the full "
+        "policy-capped micro MNT→WMNT wrap on FusionX V2. This keeps the full "
         "observe-plan-guard-act-log loop exercised and independently verifiable on "
         "Mantle + the agent identity contract while higher-intelligence planners are degraded."
     )
 
     return ActionPlan(
         action_type="swap",
-        protocol="merchant_moe",
+        protocol="fusionx_v2",
         asset_in="MNT",
         asset_out="WMNT",
         size_usd=swap_amount,

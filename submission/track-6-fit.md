@@ -4,14 +4,14 @@ AMEO delivers a **verifiable autonomous treasury agent** for Track 6: persistent
 
 ## Execution reality (no theater)
 
-- Primary path: Direct, audited `MantleDexAdapter` (web3.py) → Merchant Moe / FusionX routers.
+- Primary path: Direct, audited `MantleDexAdapter` (web3.py) → FusionX V2 router (fallback treasury_ping on testnet liquidity gaps, surfaced in UI).
 - Quote / skills surface: `mantle.swap.v1` telemetry (price signals only). Settlement always via direct FusionX V2 adapter in `mantle_dex.py`.
-- All labels in the live console now accurately say "Mantle DEX Execution".
+- All labels in the live console accurately say "FusionX V2 DEX".
 - The `/v1/skills` registry and event telemetry remain for future agentic wallet composability.
 
 ## Agentic wallet + identity
 
-- `MantleAgentIdentity` (ERC-8004-inspired) at `0x8aC72a4B26e973FCdD7dAadd960Ae0eC635b4197`
+- `MantleAgentIdentity` (ERC-8004-inspired) at `0xE6038881c6533D284906695A5708bC0954678945`
 - Successful policy-approved executions attempt `DecisionLogged` under the agent token.
 - `/v1/verify/{tx}` now returns full on-chain proof **or** transparent "execution evidence only" for older/partial cycles (radical transparency, not 404s).
 

@@ -67,14 +67,22 @@ export class AMEO {
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-      ...init,
+    const fetchOptions: RequestInit = {
+      method: init?.method ?? "GET",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
         ...(init?.headers ?? {}),
       },
-    });
+    };
+    if (init?.body !== undefined) {
+      fetchOptions.body = init.body;
+    }
+    if (init?.signal !== undefined) {
+      fetchOptions.signal = init.signal;
+    }
+
+    const response = await this.fetchImpl(`${this.baseUrl}${path}`, fetchOptions);
     const body = (await response.json()) as T & { error?: { code?: string; message?: string } };
     if (!response.ok) {
       throw new AMEOError(body.error?.message ?? response.statusText, response.status, body.error?.code);
@@ -97,6 +105,9 @@ export class AMEO {
         ownerAddress: string;
         identityContract: string;
         decisionCount: number;
+        totalPnL?: string;
+        capabilities?: string[];
+        tokenURI?: string;
       }>(`/v1/agents/${tokenId}`),
   };
 

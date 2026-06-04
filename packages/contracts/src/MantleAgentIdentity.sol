@@ -3,12 +3,13 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title MantleAgentIdentity (ERC-8004-inspired v2)
 /// @notice Stronger step toward ERC-8004 agent identity for hackathon audit.
-/// @dev Not a full EIP-8004 registry (no capabilities/attestations yet).
-///      History is the append-only DecisionLogged events (the source of truth).
-///      This version adds signedPnL and explicit dataHash for better on-chain benchmarking.
+/// @dev History is the append-only DecisionLogged + CapabilityRegistered events (the source of truth).
+///      Supports basic profile aggregation (total PnL, decision count, last capability) and
+///      a minimal tokenURI for the agent NFT. Deployed address may lag source until redeploy.
 contract AgentIdentity is ERC721, Ownable {
     uint256 public nextTokenId;
 
@@ -17,6 +18,8 @@ contract AgentIdentity is ERC721, Ownable {
     mapping(uint256 => string) public lastMetadataUri;
     mapping(uint256 => int256) public lastSignedPnL;      // 1e18 precision
     mapping(uint256 => uint256) public decisionCount;     // simple on-chain reputation
+    mapping(uint256 => int256) public totalSignedPnL;     // cumulative PnL for reputation/aggregation (ERC-8004 style)
+    mapping(uint256 => string) public lastCapability;     // basic capability attestation surface
 
     event DecisionLogged(
         uint256 indexed agentId,
@@ -51,6 +54,7 @@ contract AgentIdentity is ERC721, Ownable {
         lastMetadataUri[agentId] = metadataUri;
         lastSignedPnL[agentId] = signedPnL1e18;
         decisionCount[agentId] += 1;
+        totalSignedPnL[agentId] += signedPnL1e18;  // aggregate for profile
 
         emit DecisionLogged(
             agentId,
@@ -63,18 +67,48 @@ contract AgentIdentity is ERC721, Ownable {
         );
     }
 
-    // Future ERC-8004 surface (stub for post-hackathon)
+    /// @notice Returns aggregated on-chain profile for the agent (decision history, PnL, capabilities).
+    /// @dev Implements basic ERC-8004-inspired agent identity surface (profile + capability attestation).
+    ///      Full history/attestations can be indexed from DecisionLogged + CapabilityRegistered events.
     function getAgentProfile(uint256 agentId) external view returns (
         bytes32 lastRationale,
         int256 lastPnL,
+        int256 totalPnL,
         uint256 decisions,
-        string memory lastMeta
+        string memory lastMeta,
+        string memory capability
     ) {
         return (
             lastRationaleHash[agentId],
             lastSignedPnL[agentId],
+            totalSignedPnL[agentId],
             decisionCount[agentId],
-            lastMetadataUri[agentId]
+            lastMetadataUri[agentId],
+            lastCapability[agentId]
         );
+    }
+
+    /// @notice Minimal tokenURI for the agent NFT (ERC-721 standard).
+    /// @dev Returns a docs link for now. Can be upgraded to on-chain metadata JSON or IPFS/0G later.
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        require(ownerOf(tokenId) != address(0), "ERC721: invalid token ID");
+        return string(abi.encodePacked(
+            "https://docs.ameo.agiwithai.com/agents/",
+            Strings.toString(tokenId)
+        ));
+    }
+
+    event CapabilityRegistered(
+        uint256 indexed agentId,
+        string capability,
+        address operator
+    );
+
+    /// @notice Register a capability/attestation for this agent (e.g. "delta-neutral-yield", "verifiable-cognition").
+    /// @dev Callable by the NFT owner (the agent operator). Emits for off-chain indexing / ERC-8004 attestations.
+    function registerCapability(uint256 agentId, string calldata capability) external {
+        require(ownerOf(agentId) == msg.sender, "Not agent owner");
+        lastCapability[agentId] = capability;
+        emit CapabilityRegistered(agentId, capability, msg.sender);
     }
 }

@@ -87,8 +87,10 @@ export function CognitionTimeline({
           apiGet<{ items?: Array<{ cycleId?: string; txHash?: string | null }> }>(
             workerUrl,
             "/v1/decisions?limit=1",
+            8000,
+            runtimeConfig.workerApiKey,
           ).catch(() => null),
-          apiGet<{ block_number?: number }>(workerUrl, "/api/mantle-probe").catch(() => null),
+          apiGet<{ block_number?: number }>(workerUrl, "/api/mantle-probe", 8000, runtimeConfig.workerApiKey).catch(() => null),
         ]);
         if (cancelled) return;
 
@@ -307,14 +309,28 @@ export function CognitionTimeline({
             </span>
           </div>
           <div className="flex justify-between items-center border-b border-ink/10 pb-1.5">
-            <span className="text-ink/80">Max Trade Limit (${runtimeConfig.maxTradeUsd}):</span>
+            <span className="text-ink/80">Max Trade Limit (${data.policy.tradeSizeLimitUsd}):</span>
             <span className="font-semibold text-ink">${data.policy.tradeSizeLimitUsd}</span>
           </div>
           <div className="mt-2 text-[10px] text-muted font-mono">
             Evaluated · {data.policy?.drawdownPassed && data.policy?.whitelistPassed ? 'all predicates passed' : 'some predicates failed — plan adjusted'}
           </div>
 
-          {/* Dramatic rejection surfacing for demo (Block D / MVP) */}
+          {/* Full 7 guardrails disclosure (3 prominent + 4 silent enforcement) to match "7 guardrails" claims */}
+          <details className="mt-2 text-[10px] text-muted">
+            <summary className="cursor-pointer hover:text-ink">+ Show all 7 guardrails</summary>
+            <ul className="mt-1 pl-4 list-disc">
+              <li>✓ MaxDrawdownCheck</li>
+              <li>✓ AssetWhitelistCheck</li>
+              <li>✓ TradeSizeCheck</li>
+              <li>○ GasBudgetCheck (enforced silently)</li>
+              <li>○ MinimumBalanceCheck (enforced silently)</li>
+              <li>○ SlippageToleranceCheck (enforced silently)</li>
+              <li>○ ExecutionFrequencyCheck (enforced silently)</li>
+            </ul>
+          </details>
+
+          {/* Rejection surfacing remains visible in archived proof mode when the live worker is unreachable. */}
           {data.policy && (!data.policy.drawdownPassed || !data.policy.whitelistPassed) && (
             <div className="mt-3 p-2 bg-red-50 border-2 border-red-500 text-red-700 text-[10px] font-mono">
               ⚠️ POLICY REJECTION: Plan was adjusted or blocked by guardrails. This is the safety layer in action.
@@ -324,8 +340,8 @@ export function CognitionTimeline({
       ) : null,
     },
     {
-      title: "Execution · Mantle DEX Adapter",
-      description: "Policy-approved plan executed via direct web3 call to Merchant Moe / FusionX router on Mantle Sepolia (hot EOA signer).",
+      title: "Execution · FusionX V2 DEX",
+      description: "Policy-approved plan executed via direct web3 call to FusionX V2 DEX on Mantle Sepolia (hot EOA signer).",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />

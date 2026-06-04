@@ -29,18 +29,41 @@ function stackLabel(ok: boolean | null): string {
 export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelProps) {
   const reducedMotion = usePrefersReducedMotion();
   const { dev } = useSystemStatus();
-  const { workerUrl, setWorkerUrl } = useAmeoUi();
+  const { workerUrl, setWorkerUrl, workerApiKey, setWorkerApiKey } = useAmeoUi();
   const { runner, actionLoading, startRunner, stopRunner, restartRunner } = useAmeo();
   const [draftUrl, setDraftUrl] = useState(workerUrl);
+  const [draftApiKey, setDraftApiKey] = useState(workerApiKey);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: "ok" | "error" } | null>(
     null,
   );
   const { health, refresh } = useStackHealth(workerUrl, active);
+  const [forceArchived, setForceArchived] = useState(() => {
+    try {
+      return localStorage.getItem("ameo.force_archived") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleForceArchived = (checked: boolean) => {
+    setForceArchived(checked);
+    try {
+      if (checked) {
+        localStorage.setItem("ameo.force_archived", "true");
+      } else {
+        localStorage.removeItem("ameo.force_archived");
+      }
+      window.location.reload();
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     setDraftUrl(workerUrl);
-  }, [workerUrl]);
+    setDraftApiKey(workerApiKey);
+  }, [workerUrl, workerApiKey]);
 
   useEffect(() => {
     if (!toast) return;
@@ -57,8 +80,13 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
     setSaving(true);
     setToast(null);
     setWorkerUrl(next);
+    setWorkerApiKey(draftApiKey.trim());
     try {
+      const headers: Record<string, string> = {};
+      const key = draftApiKey.trim();
+      if (key) headers["X-API-KEY"] = key;
       const res = await fetch(`${next.replace(/\/$/, "")}/health`, {
+        headers: Object.keys(headers).length ? headers : undefined,
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
@@ -76,20 +104,39 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-border bg-neutral-50 p-4">
-        <label className="flex cursor-pointer items-center justify-between gap-3">
-          <span className="text-sm font-medium text-ink">Reduce motion</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[#E8622A]"
-            checked={reducedMotion}
-            onChange={(e) => setReducedMotionOverride(e.target.checked)}
-          />
-        </label>
-        <p className="mt-2 text-xs text-muted">
-          Respects OS <code className="font-mono">prefers-reduced-motion</code> and adds a manual
-          override stored in this browser.
-        </p>
+      <section className="rounded-lg border border-border bg-neutral-50 p-4 space-y-4">
+        <div>
+          <label className="flex cursor-pointer items-center justify-between gap-3">
+            <span className="text-sm font-medium text-ink">Reduce motion</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[#E8622A]"
+              checked={reducedMotion}
+              onChange={(e) => setReducedMotionOverride(e.target.checked)}
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted">
+            Respects OS <code className="font-mono">prefers-reduced-motion</code> and adds a manual
+            override stored in this browser.
+          </p>
+        </div>
+
+        <hr className="border-border" />
+
+        <div>
+          <label className="flex cursor-pointer items-center justify-between gap-3">
+            <span className="text-sm font-medium text-ink">Force archived proof view</span>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[#E8622A]"
+              checked={forceArchived}
+              onChange={(e) => handleToggleForceArchived(e.target.checked)}
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted">
+            Simulates offline worker mode to test or view the polished archived proof screens.
+          </p>
+        </div>
       </section>
 
       {/* Section A — Worker connection */}
@@ -114,6 +161,22 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
             type="url"
             value={draftUrl}
             onChange={(e) => setDraftUrl(e.target.value)}
+          />
+          <label
+            htmlFor="worker-api-key"
+            className="block text-sm font-medium text-ink"
+          >
+            Worker API Key (X-API-KEY, optional for protected deploys)
+          </label>
+          <input
+            id="worker-api-key"
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
+            name="workerApiKey"
+            type="password"
+            placeholder="leave empty for open dev instances"
+            value={draftApiKey}
+            onChange={(e) => setDraftApiKey(e.target.value)}
+            autoComplete="off"
           />
           <button
             className="btn-primary h-10 px-4 text-sm font-semibold disabled:opacity-60"

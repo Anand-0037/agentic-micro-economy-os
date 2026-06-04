@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { VerifiableLog } from "../hooks/useAmeo";
 import { decisionStatus, shortHash } from "../lib/dashboardFormat";
 import { Skeleton } from "./ui/Skeleton";
+import { useAgentProfile } from "../hooks/useAgentProfile";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -55,6 +56,9 @@ export function DecisionsTable({
   compact = false,
 }: DecisionsTableProps) {
   const [page, setPage] = useState(0);
+  const { data: profile } = useAgentProfile();
+
+  const formattedTotalPnL = profile?.totalPnL ? (Number(profile.totalPnL) / 1e18).toFixed(4) : null;
 
   const totalPages = paginated
     ? Math.max(1, Math.ceil(logs.length / pageSize))
@@ -92,6 +96,30 @@ export function DecisionsTable({
           <p className="mt-1 text-sm text-muted">
             Verifiable DecisionLogged events on Mantle — the on-chain proof log.
           </p>
+          {profile && (
+            <div className="mt-2 flex flex-wrap gap-2 text-xs font-mono">
+              {formattedTotalPnL !== null && (
+                <span className="bg-sand px-2 py-0.5 border border-border rounded text-ink">
+                  Cumulative PnL: <span className="font-semibold text-accent">{formattedTotalPnL} MNT</span>
+                </span>
+              )}
+              {profile.capabilities && profile.capabilities.map((cap) => (
+                <span key={cap} className="bg-[#e2f0d9] px-2 py-0.5 border border-[#3d7a5f]/30 text-[#3d7a5f] rounded font-semibold">
+                  Capability: {cap}
+                </span>
+              ))}
+              {profile.tokenURI && (
+                <a
+                  href={profile.tokenURI}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-neutral-100 hover:bg-neutral-200 px-2 py-0.5 border border-border rounded text-accent underline transition-colors"
+                >
+                  Agent NFT Metadata ↗
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
