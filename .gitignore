@@ -22,7 +22,7 @@ __pycache__/
 apps/web/dist/
 apps/worker/.pytest_cache/
 apps/worker/logs/
-apps/worker/eval_report.json
+# apps/worker/eval_report.json
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/

@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-06-04T04:39:42.133861+00:00",
+  "window_days": 7,
+  "sample_count": 57,
+  "sharpe_ratio": 0.0,
+  "max_drawdown": 0.0,
+  "pnl_series_tail": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "best_win": {
+    "created_at": "2026-05-08T12:40:03.075480",
+    "pnl": 0.0,
+    "action_type": "no_op"
+  },
+  "limitations": [
+    "Short history bias \u2014 testnet sample only",
+    "Sharpe proxy omitted when sample_count < 5",
+    "Gas costs dominate on small execution wallets",
+    "Merchant Moe router not deployed on Mantle Sepolia \u2014 native ping fallback used"
+  ],
+  "note": "Regenerate: cd apps/worker && uv run python ../../scripts/generate_eval_report.py"
+}
