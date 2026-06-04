@@ -11,7 +11,7 @@ AMEO delivers a **verifiable autonomous treasury agent** for Track 6: persistent
 
 ## Agentic wallet + identity
 
-- `MantleAgentIdentity` (ERC-8004-inspired) at `0xE6038881c6533D284906695A5708bC0954678945`
+- `MantleAgentIdentity` (ERC-8004-inspired) at `0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc`
 - Successful policy-approved executions attempt `DecisionLogged` under the agent token.
 - `/v1/verify/{tx}` now returns full on-chain proof **or** transparent "execution evidence only" for older/partial cycles (radical transparency, not 404s).
 

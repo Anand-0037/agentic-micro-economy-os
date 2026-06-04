@@ -11,7 +11,7 @@ export const runtimeConfig = {
   mantleChainId: env.VITE_MANTLE_CHAIN_ID ?? "5003",
   explorerBase: env.VITE_MANTLE_EXPLORER_BASE ?? "https://sepolia.mantlescan.xyz",
   agentIdentityAddress:
-    env.VITE_AGENT_IDENTITY_ADDRESS ?? "0xE6038881c6533D284906695A5708bC0954678945", // CRITICAL: must match worker AGENT_IDENTITY_ADDRESS and on-chain mint; set in Vercel for prod
+    env.VITE_AGENT_IDENTITY_ADDRESS ?? "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc", // CRITICAL: must match worker AGENT_IDENTITY_ADDRESS and on-chain mint; set in Vercel for prod
   agentTokenId: env.VITE_AGENT_TOKEN_ID ?? "0",
   agentEoa: env.VITE_AGENT_EOA ?? "0xFB76C4B6912bCF358752Fb4b4b15B959EfaDD915",
   treasuryEoa: env.VITE_TREASURY_EOA ?? "",

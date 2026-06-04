@@ -122,7 +122,7 @@ def test_get_agent_route_returns_profile() -> None:
 
     # Mock the Settings so agent_identity_address is configured
     mock_settings = Settings(
-        AGENT_IDENTITY_ADDRESS="0xE6038881c6533D284906695A5708bC0954678945",
+        AGENT_IDENTITY_ADDRESS="0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc",
         AGENT_TOKEN_ID=0,
         API_KEY="",
     )
@@ -158,7 +158,7 @@ def test_log_decision_registers_capability() -> None:
     from ameo_worker.settings import Settings
 
     settings = Settings(
-        AGENT_IDENTITY_ADDRESS="0xE6038881c6533D284906695A5708bC0954678945",
+        AGENT_IDENTITY_ADDRESS="0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc",
         AGENT_PRIVATE_KEY="0x" + "11" * 32,
         MANTLE_CHAIN_ID=5003,
     )

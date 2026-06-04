@@ -16,7 +16,7 @@ Trust infrastructure for autonomous finance. AMEO enforces policy guardrails **o
 
 | Step | What you'll see | Link |
 | --- | --- | --- |
-| 1. Verified agent contract | ERC-8004-inspired identity on Mantlescan | [`0xE603…678945`](https://sepolia.mantlescan.xyz/address/0xE6038881c6533D284906695A5708bC0954678945#code) |
+| 1. Verified agent contract | ERC-8004-inspired identity on Mantlescan | [`0xEc14…1daCc`](https://sepolia.mantlescan.xyz/address/0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc#code) |
 | 2. Real execution tx | Any recent `DecisionLogged` event from the live console | Open https://ameo.agiwithai.com |
 | 3. API verification | `/v1/verify/{txHash}` — returns full policy checks + execution proof | Worker verify endpoint |
 | 4. Full decision replay | Every policy check, rationale, and settlement trace | [ameo.agiwithai.com/app/replay](https://ameo.agiwithai.com/app/replay) |
@@ -151,7 +151,7 @@ All steps emit typed events to daily `logs/events/events_YYYYMMDD.jsonl` for det
 
 - **SQLite** (`data/ameo.db` or configured `MEMORY_DB_PATH`): execution_history, pnl_snapshots, learnings. Used for `/api/history`, performance, trophies.
 - **JSONL events**: append-only source of truth for cycle reconstruction. Powers `/api/cycles/{id}` and the Replay UI's 8-node rail.
-- **On-chain**: `DecisionLogged` on the `AgentIdentity` ERC-721 (deployed at `0xE6038881c6533D284906695A5708bC0954678945`). `rationaleHash` commits to reasoning; `metadataUri` / `dataHash` point at 0G trace. (See broadcast/ for exact deployment tx.)
+- **On-chain**: `DecisionLogged` on the `AgentIdentity` ERC-721 (deployed at `0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc`). `rationaleHash` commits to reasoning; `metadataUri` / `dataHash` point at 0G trace. (See broadcast/ for exact deployment tx.)
 - **0G**: Full structured trace (including every `guardrail_evaluated` violation) is the permanent off-chain record. Verifiable via indexer root hash.
 - **Verify path** (`/v1/verify/{txHash}`): on-chain match first → local event fallback (honest, no fabrication) → 404 with guidance.
 
