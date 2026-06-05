@@ -28,7 +28,7 @@ export function SafetySection({
   policyError,
   slippageBps,
 }: SafetySectionProps) {
-  const slippagePct = ((slippageBps ?? runtimeConfig.dex_slippage_bps) / 100).toFixed(1);
+  const slippagePct = ((slippageBps ?? 100) / 100).toFixed(1);
   return (
     <details className="soft-card group">
       <summary className="cursor-pointer list-none px-4 py-4 text-sm font-semibold text-ink marker:content-none sm:px-5">
