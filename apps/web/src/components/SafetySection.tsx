@@ -1,5 +1,6 @@
 import type { PolicyDisplayRow } from "../lib/policyHumanize";
 import { ActivePolicyCard } from "./ActivePolicyCard";
+import { runtimeConfig } from "../lib/runtimeConfig";
 
 type TickerItem = {
   symbol: string;
@@ -15,6 +16,7 @@ type SafetySectionProps = {
   policyRows?: PolicyDisplayRow[];
   policyLoading?: boolean;
   policyError?: string | null;
+  slippageBps?: number;
 };
 
 export function SafetySection({
@@ -24,7 +26,9 @@ export function SafetySection({
   policyRows = [],
   policyLoading,
   policyError,
+  slippageBps,
 }: SafetySectionProps) {
+  const slippagePct = ((slippageBps ?? runtimeConfig.dex_slippage_bps) / 100).toFixed(1);
   return (
     <details className="soft-card group">
       <summary className="cursor-pointer list-none px-4 py-4 text-sm font-semibold text-ink marker:content-none sm:px-5">
@@ -41,7 +45,7 @@ export function SafetySection({
 
       <div className="border-t border-border px-4 pb-5 pt-2 sm:px-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Policy Guardrails (Enforced Outside LLM) — 7 total (3 shown; 4 silent)
+          Policy Guardrails (Enforced Outside LLM) — 7 total (3 shown; 4 active)
         </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {guardrails.map((rail) => (
@@ -53,19 +57,18 @@ export function SafetySection({
           ))}
         </div>
 
-
         <details className="mt-2">
           <summary className="text-xs text-muted cursor-pointer font-medium hover:text-ink">
-            + Show all 7 guardrails (others enforced silently)
+            + Show all 7 guardrails (active; not surfaced in the cycle card)
           </summary>
           <ul className="mt-1 text-[10px] text-muted pl-4 list-disc space-y-0.5">
-            <li>✓ MaxDrawdownCheck</li>
-            <li>✓ AssetWhitelistCheck</li>
-            <li>✓ TradeSizeCheck</li>
-            <li>✓ GasBudgetCheck (enforced silently)</li>
-            <li>✓ MinimumBalanceCheck (enforced silently)</li>
-            <li>✓ SlippageToleranceCheck (enforced silently)</li>
-            <li>✓ ExecutionFrequencyCheck (enforced silently)</li>
+            <li>✓ MaxDrawdownCheck (drawdown cap: {guardrails[0]?.value || "12% cap"})</li>
+            <li>✓ AssetWhitelistCheck (allowed: {guardrails[1]?.value || "USDC, MNT"})</li>
+            <li>✓ TradeSizeCheck (limit: {guardrails[2]?.value || "$500 max trade"})</li>
+            <li>✓ GasBudgetCheck (gas budget cap: 0.05 MNT/cycle)</li>
+            <li>✓ MinimumBalanceCheck (min balance: 5.0 MNT)</li>
+            <li>✓ SlippageToleranceCheck (slippage tolerance: {slippagePct}% cap)</li>
+            <li>✓ ExecutionFrequencyCheck (execution frequency: 12/hour max)</li>
           </ul>
         </details>
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${AGENT_IDENTITY_ADDRESS:?env AGENT_IDENTITY_ADDRESS required (e.g. 0xE6038881c6533D284906695A5708bC0954678945)}"
+: "${AGENT_IDENTITY_ADDRESS:?env AGENT_IDENTITY_ADDRESS required (e.g. 0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc)}"
 : "${MANTLESCAN_API_KEY:?env MANTLESCAN_API_KEY required for ABI lookup}"
 
 echo "==> [1/4] Checking Mantlescan ABI status for $AGENT_IDENTITY_ADDRESS"

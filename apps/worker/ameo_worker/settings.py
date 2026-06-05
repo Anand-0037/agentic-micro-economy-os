@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     live_enabled: bool = Field(True, alias="LIVE_ENABLED")
     worker_mode: str = Field("live_limited", alias="WORKER_MODE")
     max_daily_volume_usd: float = Field(500.0, alias="MAX_DAILY_VOLUME_USD")
-    max_position_usd: float = Field(250.0, alias="MAX_POSITION_USD")
+    max_position_usd: float = Field(500.0, alias="MAX_POSITION_USD")
     max_drawdown_pct: float = Field(0.12, alias="MAX_DRAWDOWN_PCT")
     asset_whitelist: str = Field("USDC,MNT,WMNT", alias="ASSET_WHITELIST")
     prompt_set_version: str = Field("v1", alias="PROMPT_SET_VERSION")

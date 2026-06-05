@@ -151,6 +151,7 @@ async def get_config() -> dict[str, Any]:
         "execution_adapter": settings.execution_adapter,
         "asset_whitelist": asset_whitelist,
         "max_drawdown_pct": pc.max_drawdown_pct,
+        "allowed_protocols": list(pc.allowed_protocols),
     }
 
 

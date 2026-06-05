@@ -204,6 +204,10 @@ def _build_summary(
     if plan:
         action_type = str(plan.data.get("action_type") or "unknown")
 
+    execution_event = executed or failed
+    if execution_event and execution_event.data.get("command") == "treasury_ping":
+        action_type = "treasury_ping"
+
     # Detect interesting real behaviors from persisted plan + guardrail events (no demo, pure event data)
     rationale_summary = ""
     if plan:

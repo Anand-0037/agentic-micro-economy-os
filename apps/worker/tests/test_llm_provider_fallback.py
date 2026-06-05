@@ -56,7 +56,7 @@ def test_generate_plan_falls_back_to_local_rules(
             observation,
             base_settings,
             allowed_assets=["MNT"],
-            allowed_protocols=["merchant_moe"],
+            allowed_protocols=["fusionx_v2"],
             lessons=[],
             cycle_id="cyc_fallback_test",
         )

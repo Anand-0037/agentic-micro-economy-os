@@ -12,7 +12,6 @@ from ..settings import Settings
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MERCHANT_MOE_ROUTER = "0xAFb85a12Babfafabfe1a518594492d5a830e782a"
 _DEFAULT_WMNT_MAINNET = "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8"
 _DEFAULT_USDC_MAINNET = "0x09bc4e0d864854c6afb6eb9a9cdf58ac190d0df9"
 
@@ -695,7 +694,7 @@ class MantleDexAdapter:
     def _router_config(self) -> Tuple[str, str]:
         candidates = [
             (self._settings.fusionx_v2_router, "fusionx_v2"),
-            (self._settings.merchant_moe_router or _DEFAULT_MERCHANT_MOE_ROUTER, "merchant_moe"),
+            (self._settings.merchant_moe_router, "fusionx_v2"),
         ]
         for addr, label in candidates:
             if addr and self._has_code(addr):

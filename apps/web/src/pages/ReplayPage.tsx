@@ -123,7 +123,10 @@ export function ReplayPage() {
                         </span>
                       </div>
                       <p className="mt-1 font-mono text-[10px] text-muted">
-                        {new Date(cycle.started_at).toLocaleString()} · {cycle.action_type}
+                        {new Date(cycle.started_at).toLocaleString()} ·{" "}
+                        {cycle.action_type === "treasury_ping"
+                          ? "degraded path (no DEX liquidity)"
+                          : cycle.action_type}
                       </p>
                       {cycle.tx_hash ? (
                         <p className="mt-1 font-mono text-[10px] text-ink/80">

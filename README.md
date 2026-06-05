@@ -1,9 +1,16 @@
 # AMEO — Policy guardrails for autonomous agents on Mantle
 
+> **The AI suggests. Policy decides. Anyone can verify.**
+>
+> **Turing Test Hackathon 2026**
+> - **Primary Track:** Track 6 — Bybit x Mantle: On-Chain Benchmarking of AI / Agentic Wallets & Economy
+> - **Secondary Tracks:** Best Infrastructure · Best Public Good · Best UI/UX
+> - **BUIDL ID:** #44123
+
 Trust infrastructure for autonomous finance. AMEO enforces policy guardrails **outside the LLM** — before execution, not after. Every decision produces a permanent, independently verifiable record on Mantle via ERC-8004-inspired identity + 0G Storage + DecisionLogged events.
 
 **Three defining features:**
-1. **Policy enforcement outside the LLM** — 7 guardrails checked before every execution (max drawdown, asset whitelist, trade size, gas budget, etc.)
+1. **Policy enforcement outside the LLM** — 7 guardrails checked before every execution (max drawdown, whitelist, trade size, gas budget, etc. dynamically configured via `/v1/config`)
 2. **Verifiable decisions** — Every rationale, policy check, and execution trace is independently checkable on-chain
 3. **Radical transparency** — Live observable agents that adapt and self-correct under policy constraints
 
@@ -11,29 +18,38 @@ Trust infrastructure for autonomous finance. AMEO enforces policy guardrails **o
 - **TypeScript SDK** — `@ameo/sdk` npm package
 - **MCP server** — `@ameo/mcp` for Claude Desktop and Cursor
 - **Narrative Console** — live replay at [ameo.agiwithai.com](https://ameo.agiwithai.com)
+- **Demo Video** — [Watch the 90-second pitch](https://youtube.com) *(Placeholder)*
+- **Strategy Alpha Verification** — [57-sample Eval Report](https://agentic-micro-economy-os.onrender.com/api/eval-report) (Sharpe / Max Drawdown)
 
 ## Confirm it works in under a minute (no mocks, honest proof)
 
 | Step | What you'll see | Link |
 | --- | --- | --- |
 | 1. Verified agent contract | ERC-8004-inspired identity on Mantlescan | [`0xEc14…1daCc`](https://sepolia.mantlescan.xyz/address/0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc#code) |
-| 2. Real execution tx | Any recent `DecisionLogged` event from the live console | Open https://ameo.agiwithai.com |
-| 3. API verification | `/v1/verify/{txHash}` — returns full policy checks + execution proof | Worker verify endpoint |
+| 2. Real execution tx | Any recent `DecisionLogged` event from the live console | Open [ameo.agiwithai.com](https://ameo.agiwithai.com) |
+| 3. API verification | Canonical Verify Example: [`0x51f83b…f027e`](https://agentic-micro-economy-os.onrender.com/v1/verify/0x51f83b8b60bb47b0a8f8d22f997db8311a2f027e) | [Verify Endpoint](https://agentic-micro-economy-os.onrender.com/v1/verify/0x51f83b8b60bb47b0a8f8d22f997db8311a2f027e) |
 | 4. Full decision replay | Every policy check, rationale, and settlement trace | [ameo.agiwithai.com/app/replay](https://ameo.agiwithai.com/app/replay) |
 
 The verify endpoint returns transparent proof for every decision — policy checks, rationale hashes, and execution traces.
+
+### Deployed Addresses & Registry
+
+- **Signer EOA:** [`0x47933b98Be8Feedf63dE822B3ce7408D027B4108`](https://sepolia.mantlescan.xyz/address/0x47933b98Be8Feedf63dE822B3ce7408D027B4108)
+- **Agent Identity (Registry):** [`0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc`](https://sepolia.mantlescan.xyz/address/0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc)
+- **Live Worker API:** [https://agentic-micro-economy-os.onrender.com](https://agentic-micro-economy-os.onrender.com)
+- **Web Console:** [https://ameo.agiwithai.com](https://ameo.agiwithai.com)
 
 ## How policy enforcement works
 
 1. **Observe** — reads wallet balances, gas prices, and market signals from Mantle Sepolia.
 2. **Decide** — an LLM proposes an action (swap, hold, rebalance). The reasoning is hashed and stored on 0G Storage.
 3. **Policy check (outside LLM)** — 7 hard rules are checked **before execution**:
-   - Max drawdown limit (12% cap)
+   - Max drawdown limit (dynamically set in `/v1/config`, e.g., 12% cap)
    - Asset whitelist (USDC, MNT only)
-   - Trade size cap ($500 max)
+   - Trade size cap (dynamically set in `/v1/config`, e.g., $500 max)
    - Gas budget limit
    - Minimum balance requirements
-   - Slippage tolerance
+   - Slippage tolerance (dynamically set in `/v1/config`, e.g., 2% max)
    - Execution frequency limits
 4. **Execute & log** — if the action passes all policy checks, AMEO settles via FusionX V2 DEX adapter (or treasury_ping testnet fallback), then emits `DecisionLogged` on the identity contract with full policy proof.
 
@@ -51,10 +67,13 @@ The verify endpoint returns transparent proof for every decision — policy chec
 | --- | --- | --- |
 | Worker | Python, FastAPI, LangGraph | Runs the observe → decide → check → execute loop |
 | Web console | React, Vite, Tailwind, wagmi | Watch the agent live, replay any past cycle |
-| Identity contract | Solidity 0.8.24, ERC-8004 + ERC-721 | One NFT = one agent. Every decision is an event under this NFT. |
+| Identity contract | Solidity 0.8.24, ERC-8004-inspired + ERC-721 | One NFT = one agent. Every decision is an event logged under this NFT (Note: Mantle contracts issue the agent identity NFT; decisions are logged under it). |
 | Policy engine | Pure-Python rules (drawdown, exposure, whitelist) | Catches bad ideas before they touch the chain |
 | Storage | 0G testnet | Permanent, addressable record of every reasoning trace |
 | Settlement | Mantle Sepolia | Cheap, fast, MNT-paid gas |
+
+### ERC-8004 Agent Registry Disclaimer
+While AMEO aligns with the spirit of the ERC-8004 standard for agent identity registries, the actual ERC-721 token representing the agent is issued on the Mantle Sepolia network. The agent identity contract records permanent `DecisionLogged` event traces mapped to this specific token ID. It is inspired by ERC-8004, but adapts it to the specific constraints and requirements of on-chain agent operations.
 
 ## Architecture
 
@@ -113,11 +132,12 @@ flowchart TB
     Sched -->|run_cycle| Graph
     HTTP -->|run_cycle| Graph
     Graph --> N1 --> N2 --> N3 --> N4 --> N5 --> N6 --> N7 --> N8 --> Final
-    N3 <--> LLMs
+    N3 --> LLMs
+    LLMs --> N3
     N1 --> MNT
     N6 --> MNT
     Final -->|full trace JSON| ZG
-    Final -->|logDecision(..., rationaleHash, metadataUri=0Groot)| ID
+    Final -->|logDecision rationaleHash and metadataUri| ID
     N5 -->|violations / pass| PersistW
     N8 -->|structured events| PersistW
     Final -->|history, PnL, learnings| PersistW
@@ -129,9 +149,10 @@ flowchart TB
     PersistW -->|cycle detail replay from events| HTTP
     HTTP -->|reconstruct 8-node rail + proof| UI
 
-    classDef layer fill:#f8f1e3,stroke:#3a2f1f
-    classDef node fill:#fff,stroke:#666
-    class Users,Worker,External,OnChain layer
+    style Users fill:#f8f1e3,stroke:#3a2f1f
+    style Worker fill:#f8f1e3,stroke:#3a2f1f
+    style External fill:#f8f1e3,stroke:#3a2f1f
+    style OnChain fill:#f8f1e3,stroke:#3a2f1f
 ```
 
 ### Cognition Loop Details (LangGraph nodes in `apps/worker/ameo_worker/graph.py`)
@@ -223,4 +244,10 @@ Deployed worker API: https://agentic-micro-economy-os.onrender.com
 - [Policy spec](docs/policy-spec.mdx)
 - [Worker API](docs/api/worker-api.mdx)
 - [Why this matters](docs/why-it-matters.mdx)
-)
+
+---
+
+### Turing Test Hackathon 2026 Submission Summary
+- **BUIDL #44123**
+- **Primary Target:** Track 6 — Bybit x Mantle: On-Chain Benchmarking of AI / Agentic Wallets & Economy
+- **Awards Targeted:** Best Infrastructure, Best Public Good, Best UI/UX

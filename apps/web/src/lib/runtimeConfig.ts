@@ -24,7 +24,7 @@ export const runtimeConfig = {
   groqModel: env.VITE_GROQ_MODEL ?? "llama-3.3-70b-versatile",
   geminiModel: env.VITE_GEMINI_MODEL ?? "gemini-2.5-pro",
   volatilityThresholdPct: Number(env.VITE_VOLATILITY_THRESHOLD_PCT ?? "0.03"),
-  maxTradeUsd: Number(env.VITE_MAX_TRADE_USD ?? "250"),
+  maxTradeUsd: Number(env.VITE_MAX_TRADE_USD ?? "500"),
   signingMethod: env.VITE_SIGNING_METHOD ?? "Hot EOA Private Key (Isolated .env)",
   zeroGIndexerUrl:
     env.VITE_0G_INDEXER_URL ?? "https://indexer-storage-testnet-turbo.0g.ai",

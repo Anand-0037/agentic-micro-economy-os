@@ -46,7 +46,7 @@ def _write_fixture(
             event_type=EventType.PLAN_GENERATED,
             data={
                 "action_type": "swap",
-                "protocol": "merchant_moe",
+                "protocol": "fusionx_v2",
                 "rationale": "Rules fallback: tiny MNT→WMNT wrap under policy caps.",
                 "planner": "rules@mantis-v1",
             },

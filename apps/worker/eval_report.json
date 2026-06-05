@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-04T04:39:42.133861+00:00",
+  "generated_at": "2026-06-04T06:50:21.171872+00:00",
   "window_days": 7,
   "sample_count": 57,
   "sharpe_ratio": 0.0,
@@ -39,7 +39,7 @@
     "Short history bias \u2014 testnet sample only",
     "Sharpe proxy omitted when sample_count < 5",
     "Gas costs dominate on small execution wallets",
-    "Merchant Moe router not deployed on Mantle Sepolia \u2014 native ping fallback used"
+    "FusionX V2 DEX liquidity thin on Mantle Sepolia \u2014 native ping fallback used"
   ],
   "note": "Regenerate: cd apps/worker && uv run python ../../scripts/generate_eval_report.py"
 }

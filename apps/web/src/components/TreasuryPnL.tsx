@@ -21,23 +21,30 @@ type TreasuryPnLProps = {
 };
 
 function displayAssets(balances: Record<string, number>) {
-  const rows: { symbol: string; amount: number | undefined }[] = [
-    { symbol: "USDC", amount: balances.USDC },
-    { symbol: "WMNT", amount: balances.WMNT },
-    { symbol: "MNT", amount: balances.MNT },
+  return [
+    { symbol: "USDC", amount: balances.USDC ?? 0 },
+    { symbol: "WMNT", amount: balances.WMNT ?? 0 },
+    { symbol: "MNT", amount: balances.MNT ?? 0 },
   ];
-  return rows.filter((row) => typeof row.amount === "number" && row.amount > 0);
 }
 
 function allocationRows(balances: Record<string, number>) {
-  const assets = displayAssets(balances);
-  const total = assets.reduce((sum, row) => sum + (row.amount ?? 0), 0);
-  if (total <= 0) return [];
-  return assets.map((row) => ({
-    symbol: row.symbol,
-    amount: row.amount ?? 0,
-    pct: ((row.amount ?? 0) / total) * 100,
-  }));
+  const USDC = balances.USDC ?? 0;
+  const WMNT = balances.WMNT ?? 0;
+  const MNT = balances.MNT ?? 0;
+  const total = USDC + WMNT + MNT;
+  if (total <= 0) {
+    return [
+      { symbol: "MNT", amount: 0, pct: 100 },
+      { symbol: "WMNT", amount: 0, pct: 0 },
+      { symbol: "USDC", amount: 0, pct: 0 },
+    ];
+  }
+  return [
+    { symbol: "MNT", amount: MNT, pct: (MNT / total) * 100 },
+    { symbol: "WMNT", amount: WMNT, pct: (WMNT / total) * 100 },
+    { symbol: "USDC", amount: USDC, pct: (USDC / total) * 100 },
+  ];
 }
 
 function TreasuryEmptyCard({
@@ -149,15 +156,15 @@ export function TreasuryPnL({
               )}
             </h2>
           </div>
-          {heroTotal > 0 ? (
-            <div className="text-right">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">On-chain balance</p>
-              <p className="mt-1 font-display text-3xl font-semibold tabular-nums text-ink">
-                {formatBalance(heroTotal, 2)}
-              </p>
-              <p className="mt-1 text-xs text-muted">USDC + WMNT (testnet units)</p>
-            </div>
-          ) : null}
+          <div className="text-right">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">On-chain balance</p>
+            <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-ink">
+              {formatBalance(balances.USDC ?? 0, 2)} USDC
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {formatBalance(balances.WMNT ?? 0, 4)} WMNT &middot; {formatBalance(balances.MNT ?? 0, 4)} MNT
+            </p>
+          </div>
         </div>
 
         {treasuryBlock.state === "loading" ? (
@@ -204,7 +211,7 @@ export function TreasuryPnL({
                 <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                   {allocations.map((row) => (
                     <li key={row.symbol}>
-                      {row.symbol} {row.pct.toFixed(1)}%
+                      {row.symbol} {row.pct.toFixed(0)}% &bull; {row.symbol} {row.symbol === "USDC" ? formatBalance(row.amount, 2) : formatBalance(row.amount, 4)}
                     </li>
                   ))}
                 </ul>

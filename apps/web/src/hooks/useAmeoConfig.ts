@@ -14,6 +14,7 @@ export type AmeoConfig = {
   execution_adapter: string;
   asset_whitelist: string[];
   max_drawdown_pct?: number;
+  allowed_protocols?: string[];
 };
 
 const STALE_TIME_MS = 30_000;
@@ -51,6 +52,7 @@ export function useAmeoConfig() {
     execution_adapter: runtimeConfig.executionAdapter,
     asset_whitelist: ["USDC", "MNT"],
     max_drawdown_pct: 0.12,
+    allowed_protocols: ["fusionx_v2"],
   };
 
   const effective: AmeoConfig = query.data ?? fallback;

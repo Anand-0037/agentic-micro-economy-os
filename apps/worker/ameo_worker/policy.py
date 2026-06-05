@@ -14,11 +14,11 @@ class PolicyConfig:
     """Policy constraints for the agent."""
 
     max_drawdown_pct: float = 0.12
-    max_position_usd: float = 1000.0
+    max_position_usd: float = 500.0
     max_asset_exposure_pct: float = 0.4
     hedge_drift_pct: float = 0.05
     allowed_assets: Iterable[str] = field(default_factory=list)
-    allowed_protocols: Iterable[str] = field(default_factory=list)
+    allowed_protocols: Iterable[str] = field(default_factory=lambda: ["fusionx_v2"])
 
 
 class PolicyEngine:

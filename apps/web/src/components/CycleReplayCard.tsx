@@ -52,9 +52,11 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
       },
       { 
         id: "execution", 
-        title: (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") 
-          ? "Execution · Volatility Rebalance (FusionX V2)" 
-          : "Execution · FusionX V2 DEX", 
+        title: detail.summary.action_type === "treasury_ping"
+          ? "Execution · degraded path (no DEX liquidity)"
+          : (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") 
+            ? "Execution · Volatility Rebalance (FusionX V2)" 
+            : "Execution · FusionX V2 DEX", 
         payload: detail.execution 
       },
       { id: "tx", title: "Settled on Mantle Sepolia", payload: detail.tx_hash },
@@ -123,7 +125,11 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
             Cycle #{cycleNumber}
           </h2>
           <p className="mt-1 font-mono text-xs text-muted">
-            {detail.summary.cycle_id} · {detail.summary.action_type} ·{" "}
+            {detail.summary.cycle_id} ·{" "}
+            {detail.summary.action_type === "treasury_ping"
+              ? "degraded path (no DEX liquidity)"
+              : detail.summary.action_type}{" "}
+            ·{" "}
             <span
               className={`inline-block border px-2 py-0.5 text-[10px] font-bold uppercase ${statusPillClass(detail.summary.status)}`}
             >

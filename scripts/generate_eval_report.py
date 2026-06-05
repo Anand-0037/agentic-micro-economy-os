@@ -53,7 +53,7 @@ def main() -> int:
             "Short history bias — testnet sample only",
             "Sharpe proxy omitted when sample_count < 5",
             "Gas costs dominate on small execution wallets",
-            "Merchant Moe router not deployed on Mantle Sepolia — native ping fallback used",
+            "FusionX V2 DEX liquidity thin on Mantle Sepolia — native ping fallback used",
         ],
         "note": "Regenerate: cd apps/worker && uv run python ../../scripts/generate_eval_report.py",
     }

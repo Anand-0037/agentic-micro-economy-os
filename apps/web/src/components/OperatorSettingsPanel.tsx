@@ -29,6 +29,8 @@ function stackLabel(ok: boolean | null): string {
 export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelProps) {
   const reducedMotion = usePrefersReducedMotion();
   const { dev } = useSystemStatus();
+  const queryParams = new URLSearchParams(window.location.search);
+  const isDevMode = queryParams.get("dev") === "1";
   const { workerUrl, setWorkerUrl, workerApiKey, setWorkerApiKey } = useAmeoUi();
   const { runner, actionLoading, startRunner, stopRunner, restartRunner } = useAmeo();
   const [draftUrl, setDraftUrl] = useState(workerUrl);
@@ -140,95 +142,97 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
       </section>
 
       {/* Section A — Worker connection */}
-      <section aria-labelledby="settings-worker-heading">
-        <h3
-          id="settings-worker-heading"
-          className="text-xs font-semibold uppercase tracking-wide text-muted"
-        >
-          Worker connection
-        </h3>
-        <div className="mt-3 space-y-3">
-          <label
-            htmlFor="worker-api-url"
-            className="block text-sm font-medium text-ink"
+      {isDevMode && (
+        <section aria-labelledby="settings-worker-heading">
+          <h3
+            id="settings-worker-heading"
+            className="text-xs font-semibold uppercase tracking-wide text-muted"
           >
-            Worker API base URL
-          </label>
-          <input
-            id="worker-api-url"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
-            name="workerUrl"
-            type="url"
-            value={draftUrl}
-            onChange={(e) => setDraftUrl(e.target.value)}
-          />
-          <label
-            htmlFor="worker-api-key"
-            className="block text-sm font-medium text-ink"
-          >
-            Worker API Key (X-API-KEY, optional for protected deploys)
-          </label>
-          <input
-            id="worker-api-key"
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
-            name="workerApiKey"
-            type="password"
-            placeholder="leave empty for open dev instances"
-            value={draftApiKey}
-            onChange={(e) => setDraftApiKey(e.target.value)}
-            autoComplete="off"
-          />
-          <button
-            className="btn-primary h-10 px-4 text-sm font-semibold disabled:opacity-60"
-            type="button"
-            disabled={saving}
-            onClick={() => {
-              void handleSave();
-            }}
-          >
-            {saving ? "Reconnecting…" : "Save & reconnect"}
-          </button>
-          {toast ? <InlineToast message={toast.message} variant={toast.variant} /> : null}
-          <p className="flex items-center gap-2 text-xs text-muted">
-            <StatusDot ok={health.worker} />
-            <span>
-              Current: <span className="font-mono">{workerUrl}</span>
-            </span>
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+            Worker connection
+          </h3>
+          <div className="mt-3 space-y-3">
+            <label
+              htmlFor="worker-api-url"
+              className="block text-sm font-medium text-ink"
+            >
+              Worker API base URL
+            </label>
+            <input
+              id="worker-api-url"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
+              name="workerUrl"
+              type="url"
+              value={draftUrl}
+              onChange={(e) => setDraftUrl(e.target.value)}
+            />
+            <label
+              htmlFor="worker-api-key"
+              className="block text-sm font-medium text-ink"
+            >
+              Worker API Key (X-API-KEY, optional for protected deploys)
+            </label>
+            <input
+              id="worker-api-key"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm"
+              name="workerApiKey"
+              type="password"
+              placeholder="leave empty for open dev instances"
+              value={draftApiKey}
+              onChange={(e) => setDraftApiKey(e.target.value)}
+              autoComplete="off"
+            />
             <button
-              className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
+              className="btn-primary h-10 px-4 text-sm font-semibold disabled:opacity-60"
               type="button"
-              disabled={actionLoading || runner.running}
+              disabled={saving}
               onClick={() => {
-                void startRunner();
+                void handleSave();
               }}
             >
-              Start runner
+              {saving ? "Reconnecting…" : "Save & reconnect"}
             </button>
-            <button
-              className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
-              type="button"
-              disabled={actionLoading || !runner.running}
-              onClick={() => {
-                void stopRunner();
-              }}
-            >
-              Stop runner
-            </button>
-            <button
-              className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
-              type="button"
-              disabled={actionLoading}
-              onClick={() => {
-                void restartRunner();
-              }}
-            >
-              Restart worker
-            </button>
+            {toast ? <InlineToast message={toast.message} variant={toast.variant} /> : null}
+            <p className="flex items-center gap-2 text-xs text-muted">
+              <StatusDot ok={health.worker} />
+              <span>
+                Current: <span className="font-mono">{workerUrl}</span>
+              </span>
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+              <button
+                className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
+                type="button"
+                disabled={actionLoading || runner.running}
+                onClick={() => {
+                  void startRunner();
+                }}
+              >
+                Start runner
+              </button>
+              <button
+                className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
+                type="button"
+                disabled={actionLoading || !runner.running}
+                onClick={() => {
+                  void stopRunner();
+                }}
+              >
+                Stop runner
+              </button>
+              <button
+                className="btn-secondary h-9 px-3 text-xs font-semibold disabled:opacity-60"
+                type="button"
+                disabled={actionLoading}
+                onClick={() => {
+                  void restartRunner();
+                }}
+              >
+                Restart worker
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Section B — Live stack info */}
       <section aria-labelledby="settings-stack-heading">
@@ -267,75 +271,77 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
       </section>
 
       {/* Section C — Developer tools (collapsed) */}
-      <details className="rounded-lg border border-border bg-neutral-50">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-ink marker:content-none">
-          <svg
-            className="h-4 w-4 text-muted"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-          </svg>
-          Developer tools
-        </summary>
-        <div className="space-y-5 border-t border-border px-4 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              System diagnostics
-            </p>
-            <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface p-3 font-mono text-[0.65rem] leading-relaxed text-muted">
-              {JSON.stringify(dev, null, 2)}
-            </pre>
-            {dev.llmError ? (
-              <p className="mt-2 text-xs text-muted">
-                LLM detail: {dev.llmError}
+      {isDevMode && (
+        <details className="rounded-lg border border-border bg-neutral-50">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-ink marker:content-none">
+            <svg
+              className="h-4 w-4 text-muted"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            Developer tools
+          </summary>
+          <div className="space-y-5 border-t border-border px-4 py-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                System diagnostics
               </p>
-            ) : null}
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Observability
-            </p>
-            <p className="mt-2 text-sm text-muted">
-              Sentry {sentryConfigured ? "configured" : "not configured"} ({sentryEnv})
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {import.meta.env.DEV ? (
+              <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface p-3 font-mono text-[0.65rem] leading-relaxed text-muted">
+                {JSON.stringify(dev, null, 2)}
+              </pre>
+              {dev.llmError ? (
+                <p className="mt-2 text-xs text-muted">
+                  LLM detail: {dev.llmError}
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Observability
+              </p>
+              <p className="mt-2 text-sm text-muted">
+                Sentry {sentryConfigured ? "configured" : "not configured"} ({sentryEnv})
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {import.meta.env.DEV ? (
+                  <button
+                    className="btn-secondary h-9 px-3 text-xs font-semibold"
+                    type="button"
+                    onClick={() => captureSentryTestError()}
+                  >
+                    Test client Sentry
+                  </button>
+                ) : null}
                 <button
                   className="btn-secondary h-9 px-3 text-xs font-semibold"
                   type="button"
-                  onClick={() => captureSentryTestError()}
+                  onClick={() => {
+                    void fetch(`${workerUrl}/sentry-debug`);
+                  }}
                 >
-                  Test client Sentry
+                  Test worker Sentry
                 </button>
-              ) : null}
-              <button
-                className="btn-secondary h-9 px-3 text-xs font-semibold"
-                type="button"
-                onClick={() => {
-                  void fetch(`${workerUrl}/sentry-debug`);
-                }}
-              >
-                Test worker Sentry
-              </button>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Build-time chain hints
+              </p>
+              <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface p-3 font-mono text-[0.65rem] leading-relaxed text-muted">
+                {`VITE_MANTLE_RPC_URL=${defaultRpc}\nVITE_MANTLE_CHAIN_ID=${defaultChain}`}
+              </pre>
+              <p className="mt-2 text-xs text-muted">
+                These are baked in at build time. To change them, rebuild the web image.
+              </p>
             </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Build-time chain hints
-            </p>
-            <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface p-3 font-mono text-[0.65rem] leading-relaxed text-muted">
-              {`VITE_MANTLE_RPC_URL=${defaultRpc}\nVITE_MANTLE_CHAIN_ID=${defaultChain}`}
-            </pre>
-            <p className="mt-2 text-xs text-muted">
-              These are baked in at build time. To change them, rebuild the web image.
-            </p>
-          </div>
-        </div>
-      </details>
+        </details>
+      )}
     </div>
   );
 }

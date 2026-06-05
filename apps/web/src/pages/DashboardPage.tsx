@@ -65,7 +65,9 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
                   {c.status}
                 </span>
               </div>
-              <div className="text-muted truncate">{c.action_type}</div>
+              <div className="text-muted truncate">
+                {c.action_type === "treasury_ping" ? "degraded path (no DEX liquidity)" : c.action_type}
+              </div>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {c.has_volatility_response && (
                   <span className="bg-amber-100 text-amber-700 px-1 rounded text-[9px]">⚡ VOL</span>
@@ -170,15 +172,19 @@ export function DashboardPage() {
   );
 
   const policyRows = useMemo(() => {
-    // Map /v1/config -> PolicyDisplayRow shape (for ActivePolicyCard)
-    const snap = {
-      max_drawdown_pct: ameoConfig.max_drawdown_pct,
-      max_position_usd: ameoConfig.max_position_usd,
-      max_asset_exposure_pct: 0.4,
-      hedge_drift_pct: 0.05,
-      allowed_assets: ameoConfig.asset_whitelist,
-      allowed_protocols: [],
-    };
+    const snap = ameoConfig
+      ? {
+          max_drawdown_pct: ameoConfig.max_drawdown_pct,
+          max_position_usd: ameoConfig.max_position_usd,
+          allowed_assets: ameoConfig.asset_whitelist,
+          allowed_protocols: ameoConfig.allowed_protocols,
+        }
+      : {
+          max_drawdown_pct: undefined,
+          max_position_usd: undefined,
+          allowed_assets: undefined,
+          allowed_protocols: [],
+        };
     return humanizePolicy(snap);
   }, [ameoConfig]);
 
@@ -333,6 +339,15 @@ export function DashboardPage() {
       </header>
 
       <div className="space-y-8">
+        {latestCycleDetail && !latestCycleDetail.zero_g?.root_hash && (
+          <div className="border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 font-mono flex items-center gap-2 rounded">
+            <span className="text-sm">⚠️</span>
+            <div>
+              <span className="font-bold">0G Storage anchor pending:</span> Galileo testnet congestion or gas limits may delay storage root anchoring. Execution safety and trail remain fully verified on-chain.
+            </div>
+          </div>
+        )}
+
         {showTreasuryBlock ? (
           <TreasuryPnL
             balances={balances}
@@ -457,6 +472,7 @@ export function DashboardPage() {
           policyRows={policyRows}
           policyLoading={configLoading}
           policyError={null}
+          slippageBps={ameoConfig?.dex_slippage_bps}
         />
       </div>
     </div>
