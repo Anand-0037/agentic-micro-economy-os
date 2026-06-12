@@ -347,9 +347,12 @@ def act(state: AgentState) -> AgentState:
         plan.size_usd if plan.size_usd is not None else plan.action_params.get("amount") or 0
     )
 
-    if settings.max_daily_volume_usd > 0 and notional > 0:
+    from .identity_status import effective_max_daily_volume_usd
+
+    daily_cap = effective_max_daily_volume_usd(settings)
+    if daily_cap > 0 and notional > 0:
         used = _ctx().memory.daily_notional_today()
-        if used + notional > settings.max_daily_volume_usd:
+        if used + notional > daily_cap:
             log_struct(
                 "act_blocked",
                 cycle_id=cycle_id,
@@ -357,7 +360,7 @@ def act(state: AgentState) -> AgentState:
                 reason="daily_volume_cap",
                 used_usd=used,
                 plan_usd=notional,
-                cap=settings.max_daily_volume_usd,
+                cap=daily_cap,
             )
             execution = ExecutionResult(
                 ok=False,

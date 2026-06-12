@@ -29,10 +29,14 @@ export async function apiRequest<T>(
   options: ApiRequestOptions = {},
   apiKey?: string,
 ): Promise<T> {
-  const isForceArchived = typeof window !== "undefined" && (
-    new URLSearchParams(window.location.search).get("archived") === "1" ||
-    localStorage.getItem("ameo.force_archived") === "true"
-  );
+  const isDevMode =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("dev") === "1";
+  const isForceArchived =
+    isDevMode &&
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).get("archived") === "1" ||
+      localStorage.getItem("ameo.force_archived") === "true");
   if (isForceArchived) {
     throw new ApiError(`Forced archived proof view enabled`, 503);
   }

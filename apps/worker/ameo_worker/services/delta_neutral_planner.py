@@ -47,7 +47,7 @@ def build_delta_neutral_plan(
     )
     plan = ActionPlan(
         action_type="bundle",
-        protocol="fusionx_v2+hedge_proxy",
+        protocol="fusionx_v2",
         asset_in="USDC",
         asset_out="MNT",
         size_usd=amount_usd,

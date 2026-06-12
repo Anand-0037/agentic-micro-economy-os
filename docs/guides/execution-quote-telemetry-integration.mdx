@@ -3,7 +3,7 @@ title: "Execution & Quote Telemetry Integration"
 description: "How AMEO performs real on-chain settlement and integrates external quote telemetry surfaces without letting them touch execution."
 ---
 
-AMEO's primary execution path is a direct, policy-gated web3 adapter (`MantleDexAdapter`) that signs and broadcasts real transactions to FusionX V2 router on Mantle Sepolia using the configured agent EOA (legacy Merchant Moe support in settings).
+AMEO's primary execution path is a direct, policy-gated web3 adapter (`MantleDexAdapter`) that signs and broadcasts real transactions to the FusionX V2 router on Mantle Sepolia using the configured agent EOA. When Sepolia liquidity is thin, execution degrades to `treasury_ping` and is labeled honestly in the UI.
 
 For observability and future agentic skills platforms, the worker also invokes `mantle.swap.v1` (via quote telemetry when present, or HTTP quote fallback) **in the planning/quote phase only**. This produces structured telemetry but does **not** perform the actual settlement. The real trade always goes through the audited direct adapter.
 

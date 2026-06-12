@@ -8,7 +8,11 @@ client = TestClient(app)
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    body = response.json()
+    assert body["status"] == "ok"
+    assert "signing_eoa" in body
+    assert body["policy_caps"]["max_position_usd"] == 250.0
+    assert body["policy_caps"]["max_daily_volume_usd"] == 500.0
 
 
 def test_api_policy() -> None:

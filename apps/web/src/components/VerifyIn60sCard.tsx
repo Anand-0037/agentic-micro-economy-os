@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { useCycle, useCyclesList } from "../hooks/useCycles";
 import { shortAddress, shortHash } from "../lib/dashboardFormat";
-import { archivedCycles, archivedVerificationBundle } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 import { Skeleton } from "./ui/Skeleton";
 import { useAgentProfile } from "../hooks/useAgentProfile";
@@ -40,14 +39,11 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
   const { data: profile } = useAgentProfile();
 
   const verifyCycle = useMemo(() => {
-    if (isError) {
-      return archivedCycles.find((cycle) => cycle.tx_hash) ?? archivedCycles[0] ?? null;
-    }
     const cycles = listData?.cycles ?? [];
     return cycles.find((cycle) => cycle.tx_hash) ?? cycles[0] ?? null;
-  }, [isError, listData?.cycles]);
+  }, [listData?.cycles]);
 
-  const { data: detail, isLoading: detailLoading } = useCycle(isError ? null : verifyCycle?.cycle_id);
+  const { data: detail, isLoading: detailLoading } = useCycle(verifyCycle?.cycle_id);
 
   useEffect(() => {
     return () => {
@@ -68,11 +64,10 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
     ? `/app/replay?cycle=${encodeURIComponent(verifyCycle.cycle_id)}`
     : null;
 
-  const archived = isError;
-  const loading = !archived && (isLoading || detailLoading || !verifyCycle);
+  const loading = !isError && (isLoading || detailLoading || !verifyCycle);
 
   const copyBundle = async () => {
-    const bundle = detail ? buildVerificationBundle(detail) : archived ? archivedVerificationBundle : null;
+    const bundle = detail ? buildVerificationBundle(detail) : null;
     if (!bundle) return;
     try {
       if (!navigator.clipboard?.writeText) {
@@ -103,9 +98,9 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
           Verify this project in 60 seconds.
         </h2>
         <p className="mt-1 text-sm text-muted">
-          {archived
-            ? "Live worker unavailable. Showing archived proof links from successful worker runs."
-            : "Open these four links in order. None of them are mocks."}
+          {isError
+            ? "Live worker unavailable. Set VITE_WORKER_URL and redeploy."
+            : "Open these four links in order from the latest real cycle."}
         </p>
       </header>
 
@@ -155,7 +150,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
                 rel="noreferrer"
                 target="_blank"
               >
-                {shortHash(txHash ?? undefined)} · {archived ? "Archived" : "Cycle"} #{verifyCycle.cycle_id} ↗
+                {shortHash(txHash ?? undefined)} · Cycle {verifyCycle.cycle_id} ↗
               </a>
             ) : (
               <p className="mt-1 text-xs text-muted">No on-chain tx recorded for the latest cycle yet.</p>
@@ -171,10 +166,8 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             <p className="text-sm font-semibold text-ink">REST verify endpoint</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-52" />
-            ) : archived ? (
-              <p className="mt-1 text-xs text-muted">
-                Live verify API is unavailable; copy the archived verification bundle below.
-              </p>
+            ) : isError ? (
+              <p className="mt-1 text-xs text-muted">Worker API unavailable.</p>
             ) : apiVerifyUrl && txHash ? (
               <a
                 className="mt-1 inline-flex font-mono text-xs text-accent underline-offset-4 hover:underline"
@@ -198,10 +191,8 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             <p className="text-sm font-semibold text-ink">Replay this cycle</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-40" />
-            ) : archived ? (
-              <p className="mt-1 text-xs text-muted">
-                Replay requires the live worker API; archived event proof is shown above.
-              </p>
+            ) : isError ? (
+              <p className="mt-1 text-xs text-muted">Worker API unavailable.</p>
             ) : replayUrl ? (
               <Link
                 className="mt-1 inline-flex text-xs font-semibold text-accent underline-offset-4 hover:underline"
@@ -219,7 +210,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
       <button
         type="button"
         className="neo-button mt-5 border-2 border-ink bg-sand px-4 py-2 text-xs font-bold uppercase tracking-wider text-ink disabled:opacity-50"
-        disabled={!detail && !archived}
+        disabled={!detail}
         onClick={() => {
           void copyBundle();
         }}

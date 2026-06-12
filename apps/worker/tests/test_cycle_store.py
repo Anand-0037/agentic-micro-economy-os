@@ -82,7 +82,7 @@ def _write_fixture(
     ]
     with log_file.open("a" if append else "w", encoding="utf-8") as handle:
         for event in events:
-            handle.write(event.json() + "\n")
+            handle.write(event.model_dump_json() + "\n")
 
 
 @pytest.fixture(autouse=True)

@@ -2,22 +2,19 @@ from ameo_worker.bootstrap import enforce_production_llm_policy
 from ameo_worker.settings import Settings
 
 
-def test_production_requires_zai() -> None:
+def test_production_allows_provider_chain_without_zai() -> None:
     settings = Settings(
         MANTLE_RPC_URL="https://rpc.example.com",
         LLM_PROVIDER="groq",
         GROQ_API_KEY="x",
+        LLM_PROVIDER_CHAIN="groq,z_ai,gemini,local_rules",
     )
     import os
 
     old = os.environ.get("NODE_ENV")
     os.environ["NODE_ENV"] = "production"
     try:
-        try:
-            enforce_production_llm_policy(settings)
-            raise AssertionError("expected RuntimeError")
-        except RuntimeError as exc:
-            assert "LLM_PROVIDER=z_ai" in str(exc)
+        enforce_production_llm_policy(settings)
     finally:
         if old is None:
             os.environ.pop("NODE_ENV", None)

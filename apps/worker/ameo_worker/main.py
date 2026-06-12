@@ -23,7 +23,13 @@ from .adapters.mantle_dex import MantleDexAdapter
 from .clients.mantle import MantleClient
 from .agent import run_cycle
 from .bootstrap import enforce_production_llm_policy
-from .policy import serialize_default_policy
+from .context import get_worker_context
+from .identity_status import (
+    effective_max_daily_volume_usd,
+    inspect_identity_readiness,
+    signing_eoa_from_settings,
+)
+from .policy import policy_config_from_settings, serialize_default_policy
 from .routes.v1 import router as v1_router
 from .sentry_setup import init_sentry
 from .services.cycle_store import get_cycle, list_cycles
@@ -97,9 +103,36 @@ def _check_zero_g_binary() -> None:
         logger.warning("0G binary preflight check failed: %s", exc)
 
 
+def _check_identity_nft() -> None:
+    try:
+        settings = get_settings()
+        signing = signing_eoa_from_settings(settings)
+        ctx = get_worker_context()
+        if ctx.onchain is not None:
+            status = inspect_identity_readiness(
+                settings,
+                w3=ctx.onchain._w3,
+                contract=ctx.onchain._contract,
+            )
+        else:
+            status = inspect_identity_readiness(settings)
+
+        if status.get("ready"):
+            logger.info(
+                "identity_nft_ready token_id=%s signing_eoa=%s",
+                settings.agent_token_id,
+                signing,
+            )
+        elif status.get("action_required"):
+            logger.warning("identity_nft_not_ready: %s", status["action_required"])
+    except Exception as exc:
+        logger.warning("identity_nft_check: %s", exc)
+
+
 @app.on_event("startup")
 async def on_startup() -> None:
     _check_zero_g_binary()
+    _check_identity_nft()
     scheduler = AsyncIOScheduler()
     scheduler.add_job(_scheduler_tick, "interval", minutes=30, id="ameo_cycle_tick")  # Block B: 30-min production tick for reliable DecisionLogged history
     scheduler.start()
@@ -134,9 +167,33 @@ async def root() -> dict[str, Any]:
     }
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    """Block B: simple health for Render / load balancers."""
-    return {"status": "ok"}
+async def health() -> dict[str, Any]:
+    """Render health + identity readiness hint for operators."""
+    settings = get_settings()
+    signing = signing_eoa_from_settings(settings)
+    identity = {"ready": None, "signing_eoa": signing}
+    try:
+        ctx = get_worker_context()
+        if ctx.onchain is not None:
+            status = inspect_identity_readiness(
+                settings,
+                w3=ctx.onchain._w3,
+                contract=ctx.onchain._contract,
+            )
+            identity["ready"] = status.get("ready")
+            if status.get("action_required") and not status.get("ready"):
+                identity["hint"] = status["action_required"]
+    except Exception:
+        pass
+    return {
+        "status": "ok",
+        "signing_eoa": signing,
+        "identity": identity,
+        "policy_caps": {
+            "max_position_usd": policy_config_from_settings(settings).max_position_usd,
+            "max_daily_volume_usd": effective_max_daily_volume_usd(settings),
+        },
+    }
 
 
 @app.get("/v1/scheduler/status")
@@ -336,8 +393,9 @@ async def api_public_config() -> dict[str, Any]:
         "memory_db_path": s.memory_db_path,
         "live_enabled": s.live_enabled,
         "worker_mode": s.worker_mode,
-        "max_daily_volume_usd": s.max_daily_volume_usd,
-        "max_position_usd": s.max_position_usd,
+        "max_daily_volume_usd": effective_max_daily_volume_usd(s),
+        "max_position_usd": policy_config_from_settings(s).max_position_usd,
+        "signing_eoa": signing_eoa_from_settings(s),
         "prompt_set_version": s.prompt_set_version,
         "allows_live_execution": s.allows_live_execution(),
         "daily_notional_usd_today": db.daily_notional_today(),
@@ -491,8 +549,3 @@ async def api_eval_report() -> dict[str, Any]:
         return {"available": False, "message": f"Could not read eval report: {exc}"}
     return {"available": True, "path": str(path), "report": data}
 
-
-@app.get("/sentry-debug")
-async def trigger_error() -> dict[str, Any]:
-    """Verify worker Sentry — triggers a test exception."""
-    raise RuntimeError("AMEO Sentry worker test — delete me")

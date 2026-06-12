@@ -8,7 +8,8 @@ import {
 } from "react";
 
 const DEFAULT_WORKER =
-  import.meta.env.VITE_WORKER_URL ?? "http://localhost:8000";
+  import.meta.env.VITE_WORKER_URL ??
+  "https://agentic-micro-economy-os.onrender.com";
 
 export type AmeoUiContextValue = {
   workerUrl: string;

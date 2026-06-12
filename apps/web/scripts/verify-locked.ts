@@ -126,9 +126,7 @@ async function main() {
 
   const checks: Array<{ role: string; address: string; probe?: "factory" | "router" | "pair" }> = [
     { role: "MantleAgentIdentity", address: env("AGENT_IDENTITY_ADDRESS"), probe: undefined },
-    { role: "Merchant Moe router (mainnet ref)", address: "0xAFb85a12Babfafabfe1a518594492d5a830e782a", probe: "router" },
-    { role: "Merchant Moe factory (mainnet ref)", address: "0x5bEf015CA9424A7C07B68490616a4C1F094BEdEc", probe: "factory" },
-    { role: "FusionX V2 router (docs testnet)", address: env("FUSIONX_V2_ROUTER") || "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033", probe: "router" },
+    { role: "FusionX V2 router (Sepolia)", address: env("FUSIONX_V2_ROUTER") || "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033", probe: "router" },
     { role: "FusionX V2 factory (docs testnet)", address: env("FUSIONX_V2_FACTORY") || "0x272465431A6b86E3B9E5b9bD33f5D103a3F59eDb", probe: "factory" },
     { role: "FusionX USDC", address: env("FUSIONX_USDC") || "0xc92747b1e4Bd5F89BBB66bAE657268a5F4c4850C" },
     { role: "FusionX WMNT (configure FUSIONX_WMNT)", address: env("FUSIONX_WMNT") || env("FUSIONX_WBIT") || env("MANTLE_WMNT_ADDRESS") || "" },

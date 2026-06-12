@@ -26,7 +26,7 @@ const chips = [
   {
     icon: "🪙",
     title: "Mantle settlement",
-    sub: "MNT-paid gas · FusionX V2 DEX adapter",
+    sub: "MNT-paid gas · FusionX V2 (treasury_ping when Sepolia liquidity is thin)",
     href: `${explorerBase}/address/${FUSIONX_ROUTER}`,
   },
   {

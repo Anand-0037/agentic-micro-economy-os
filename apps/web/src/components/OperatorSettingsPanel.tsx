@@ -123,22 +123,25 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
           </p>
         </div>
 
-        <hr className="border-border" />
-
-        <div>
-          <label className="flex cursor-pointer items-center justify-between gap-3">
-            <span className="text-sm font-medium text-ink">Force archived proof view</span>
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-[#E8622A]"
-              checked={forceArchived}
-              onChange={(e) => handleToggleForceArchived(e.target.checked)}
-            />
-          </label>
-          <p className="mt-2 text-xs text-muted">
-            Simulates offline worker mode to test or view the polished archived proof screens.
-          </p>
-        </div>
+        {isDevMode ? (
+          <>
+            <hr className="border-border" />
+            <div>
+              <label className="flex cursor-pointer items-center justify-between gap-3">
+                <span className="text-sm font-medium text-ink">Force archived proof view</span>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[#E8622A]"
+                  checked={forceArchived}
+                  onChange={(e) => handleToggleForceArchived(e.target.checked)}
+                />
+              </label>
+              <p className="mt-2 text-xs text-muted">
+                Developer only (`?dev=1`). Simulates offline worker for archived proof screens.
+              </p>
+            </div>
+          </>
+        ) : null}
       </section>
 
       {/* Section A — Worker connection */}

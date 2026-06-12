@@ -188,6 +188,7 @@ def test_log_decision_registers_capability() -> None:
         mock_account = MagicMock()
         mock_account.address = "0x" + "11" * 20
         w3_mock.eth.account.from_key.return_value = mock_account
+        w3_mock.to_checksum_address.side_effect = lambda addr: addr
 
         with patch("ameo_worker.services.onchain_logger.MantleClient") as mock_mantle_client_cls:
             mock_mantle = MagicMock()
@@ -211,9 +212,8 @@ def test_log_decision_registers_capability() -> None:
             assert result["tx_hash"] == b"tx_hash".hex()
             assert result["status"] == 1
 
-            # Assert registerCapability was called with delta-neutral-lp-hedge
             mock_contract.functions.registerCapability.assert_called_once_with(
                 0,
-                "delta-neutral-lp-hedge"
+                "fusionx-lp-yield",
             )
 

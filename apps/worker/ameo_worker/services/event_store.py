@@ -49,8 +49,8 @@ class EventStore:
         )
         
         # Append to JSONL
-        with open(self.current_log_file, "a") as f:
-            f.write(event.json() + "\n")
+        with open(self.current_log_file, "a", encoding="utf-8") as f:
+            f.write(event.model_dump_json() + "\n")
             
         return event
 
@@ -59,9 +59,12 @@ class EventStore:
         if not self.current_log_file.exists():
             return events
             
-        with open(self.current_log_file, "r") as f:
+        with open(self.current_log_file, "r", encoding="utf-8") as f:
             for line in f:
-                event = AgentEvent.parse_raw(line)
+                line = line.strip()
+                if not line:
+                    continue
+                event = AgentEvent.model_validate_json(line)
                 if event.cycle_id == cycle_id:
                     events.append(event)
         return events
@@ -81,7 +84,7 @@ class EventStore:
                         if not line:
                             continue
                         try:
-                            events.append(AgentEvent.parse_raw(line))
+                            events.append(AgentEvent.model_validate_json(line))
                         except Exception:
                             continue
             except Exception:

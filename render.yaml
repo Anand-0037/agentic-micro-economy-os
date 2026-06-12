@@ -2,11 +2,14 @@
 # Frontend deploys separately on Vercel (apps/web).
 #
 # Optional persistence: attach a 1GB disk at /data and set MEMORY_DB_PATH=/data/ameo.db
+# Judging window: upgrade ameo-worker off free tier + run scripts/warm-worker.sh every 14 min
+# (UptimeRobot/cron) to avoid cold-start "Live worker unavailable" for judges.
 services:
   - type: web
     name: ameo-worker
     runtime: python
     rootDir: apps/worker
+    plan: starter
     buildCommand: bash scripts/render-build.sh
     startCommand: uvicorn ameo_worker.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health

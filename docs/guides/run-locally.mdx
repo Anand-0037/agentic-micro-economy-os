@@ -36,9 +36,9 @@ curl -s -X POST "$MANTLE_RPC_URL" \
 
 ## DEX adapter
 
-`EXECUTION_ADAPTER=mantle_dex` uses Merchant Moe / FusionX routers configured in `.env`:
+`EXECUTION_ADAPTER=fusionx_v2` uses the FusionX V2 router configured in `.env`:
 
-- `MERCHANT_MOE_ROUTER`, `FUSIONX_V2_ROUTER`
+- `FUSIONX_V2_ROUTER`, `FUSIONX_V2_FACTORY`
 - `DEX_SLIPPAGE_BPS`, `DEX_SWAP_DEADLINE_SEC`
 
 Smoke test:

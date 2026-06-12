@@ -8,6 +8,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..agent import run_cycle
+from ..identity_status import (
+    effective_max_daily_volume_usd,
+    inspect_identity_readiness,
+    signing_eoa_from_settings,
+)
 from ..policy import policy_config_from_settings, serialize_default_policy
 from ..services.cycle_store import cycle_metadata, get_cycle, list_cycles
 from ..services.decision_logs import fetch_decision_logs
@@ -69,7 +74,7 @@ POLICY_PREDICATES: list[dict[str, str]] = [
 ]
 
 SKILLS = [
-    {"id": "mantle.swap.v1", "executor": "mantle-dex-adapter + byreal-quote-surface", "version": "0.2.0"},
+    {"id": "mantle.swap.v1", "executor": "mantle-dex-adapter", "version": "0.2.0"},
     {"id": "mantle.lp_add.v1", "executor": "mantle-dex-adapter (addLiquidity on FusionX)", "version": "0.3.0"},
     {"id": "mantle.perps_hedge.v1", "executor": "mantle-dex-adapter (synthetic hedge proxy; full Orderly pending)", "version": "0.3.0"},
 ]
@@ -118,7 +123,7 @@ def _normalize_tx(tx_hash: str) -> str:
 
 @router.get("/skills")
 async def list_skills() -> dict[str, Any]:
-    """Registered Byreal Skills available to the worker."""
+    """Registered execution skills available to the worker."""
     return {"skills": SKILLS}
 
 
@@ -143,8 +148,9 @@ async def get_config() -> dict[str, Any]:
     llm_chain = [p.strip() for p in (settings.llm_provider_chain or "").split(",") if p.strip()]
     return {
         "guardrails": GUARDRAILS,
-        "max_position_usd": settings.max_position_usd,
-        "max_daily_volume_usd": settings.max_daily_volume_usd,
+        "max_position_usd": pc.max_position_usd,
+        "max_daily_volume_usd": effective_max_daily_volume_usd(settings),
+        "signing_eoa": signing_eoa_from_settings(settings),
         "volatility_threshold_pct": settings.volatility_threshold_pct,
         "dex_slippage_bps": settings.dex_slippage_bps,
         "llm_provider_chain": llm_chain,
@@ -153,6 +159,26 @@ async def get_config() -> dict[str, Any]:
         "max_drawdown_pct": pc.max_drawdown_pct,
         "allowed_protocols": list(pc.allowed_protocols),
     }
+
+
+@router.get("/identity/status")
+async def identity_status() -> dict[str, Any]:
+    """Pre-flight: signing EOA must own AGENT_TOKEN_ID before DecisionLogged works."""
+    settings = get_settings()
+    payload = inspect_identity_readiness(settings)
+    try:
+        from ..context import get_worker_context
+
+        ctx = get_worker_context()
+        if ctx.onchain is not None:
+            payload = inspect_identity_readiness(
+                settings,
+                w3=ctx.onchain._w3,
+                contract=ctx.onchain._contract,
+            )
+    except Exception:
+        pass
+    return payload
 
 
 @router.post("/agents")

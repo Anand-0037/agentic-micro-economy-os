@@ -13,7 +13,7 @@ export const runtimeConfig = {
   agentIdentityAddress:
     env.VITE_AGENT_IDENTITY_ADDRESS ?? "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc", // CRITICAL: must match worker AGENT_IDENTITY_ADDRESS and on-chain mint; set in Vercel for prod
   agentTokenId: env.VITE_AGENT_TOKEN_ID ?? "0",
-  agentEoa: env.VITE_AGENT_EOA ?? "0xFB76C4B6912bCF358752Fb4b4b15B959EfaDD915",
+  agentEoa: env.VITE_AGENT_EOA ?? "",
   treasuryEoa: env.VITE_TREASURY_EOA ?? "",
   executionAdapter: env.VITE_EXECUTION_ADAPTER ?? "fusionx_v2",
   executionAdapterLabel: env.VITE_EXECUTION_ADAPTER_LABEL ?? "FusionX V2 DEX",
@@ -24,7 +24,7 @@ export const runtimeConfig = {
   groqModel: env.VITE_GROQ_MODEL ?? "llama-3.3-70b-versatile",
   geminiModel: env.VITE_GEMINI_MODEL ?? "gemini-2.5-pro",
   volatilityThresholdPct: Number(env.VITE_VOLATILITY_THRESHOLD_PCT ?? "0.03"),
-  maxTradeUsd: Number(env.VITE_MAX_TRADE_USD ?? "500"),
+  maxTradeUsd: Number(env.VITE_MAX_TRADE_USD ?? "250"),
   signingMethod: env.VITE_SIGNING_METHOD ?? "Hot EOA Private Key (Isolated .env)",
   zeroGIndexerUrl:
     env.VITE_0G_INDEXER_URL ?? "https://indexer-storage-testnet-turbo.0g.ai",

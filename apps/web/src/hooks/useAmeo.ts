@@ -379,15 +379,20 @@ export function useAmeoQueries() {
   useEffect(() => {
     let cancelled = false;
     const ping = async () => {
-      try {
-        await apiRequest(workerUrl, "/health", { timeoutMs: 5000 }, workerApiKey);
-        if (!cancelled) {
-          setHealthOk(true);
+      let ok = false;
+      for (let attempt = 0; attempt < 4 && !cancelled; attempt += 1) {
+        try {
+          await apiRequest(workerUrl, "/health", { timeoutMs: 8000 }, workerApiKey);
+          ok = true;
+          break;
+        } catch {
+          if (attempt < 3) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1000 * 2 ** attempt));
+          }
         }
-      } catch {
-        if (!cancelled) {
-          setHealthOk(false);
-        }
+      }
+      if (!cancelled) {
+        setHealthOk(ok);
       }
       if (!cancelled) {
         await fetchLlmDiagnostics();
@@ -395,12 +400,12 @@ export function useAmeoQueries() {
       }
     };
     void ping();
-    const id = window.setInterval(ping, 5000);
+    const id = window.setInterval(ping, 8000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [fetchLlmChain, fetchLlmDiagnostics, workerUrl]);
+  }, [fetchLlmChain, fetchLlmDiagnostics, workerApiKey, workerUrl]);
 
   return {
     status,

@@ -107,6 +107,8 @@ export function useCyclesList(limit = 50, offset = 0) {
       return apiGet<CyclesListResponse>(workerUrl, `/api/cycles?${params.toString()}`, 8000, workerApiKey);
     },
     staleTime: STALE_TIME_MS,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 }
 
@@ -123,6 +125,8 @@ export function useCycle(cycleId: string | null | undefined) {
       return apiGet<CycleDetail>(workerUrl, `/api/cycles/${cycleId}`, 8000, workerApiKey);
     },
     staleTime: STALE_TIME_MS,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 }
 

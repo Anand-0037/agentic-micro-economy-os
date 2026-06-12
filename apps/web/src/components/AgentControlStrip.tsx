@@ -83,7 +83,7 @@ export function AgentControlStrip({
               {zoneState === "loading"
                 ? "Checking worker…"
                 : zoneState === "error"
-                  ? "Archived proof mode"
+                  ? "Worker unavailable"
                   : zoneState === "bootstrap"
                     ? "Ready for first cycle"
                     : "Agent active"}
@@ -91,11 +91,12 @@ export function AgentControlStrip({
           </div>
 
           {zoneState === "loading" ? (
-            <p className="text-sm text-muted">Connecting to the Python worker…</p>
+            <p className="text-sm text-muted">
+              Connecting to the Python worker… (Render cold starts can take ~30s; retrying automatically)
+            </p>
           ) : zoneState === "error" ? (
             <p className="text-sm text-muted">
-              Showing the latest archived policy-bound runs while the live worker wakes up.
-              Open ⚙ to point the console at a different worker.
+              Cannot reach the worker API after retries. Check VITE_WORKER_URL, run scripts/warm-worker.sh on a 14-min ping, or open ⚙ to point at a different endpoint.
             </p>
           ) : zoneState === "bootstrap" ? (
             <p className="text-sm text-muted">

@@ -5,6 +5,7 @@ import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
 import { LiveProtocolStats } from "../components/LiveProtocolStats";
 import { MantleProofRail } from "../components/MantleProofRail";
 import { VerifyIn60sCard } from "../components/VerifyIn60sCard";
+import { Track6Badge } from "../components/Track6Badge";
 import { Badge, BadgeVariant } from "../components/ui/Badge";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
@@ -77,6 +78,7 @@ export function LandingPage() {
           <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-12">
             <div>
           <div className="mb-4 flex flex-wrap gap-2">
+                <Track6Badge compact />
                 <Badge variant={BadgeVariant.Chain}>Mantle Sepolia</Badge>
                 <Badge variant={BadgeVariant.Policy}>Policy Guardrails</Badge>
                 <Badge variant={BadgeVariant.Verified}>Verifiable Decisions</Badge>
@@ -85,9 +87,9 @@ export function LandingPage() {
                 Policy guardrails LLMs cannot bypass.
               </h1>
               <p className="mt-6 max-w-xl text-lg text-muted">
-                Every decision produces a permanent, independently verifiable record on Mantle.
-                Policy enforcement happens outside the LLM — before execution, not after.
-                Radical transparency by default.
+                A policy-enforced AI trading agent on Mantle that proves — with on-chain
+                DecisionLogged events — when it refused a risky trade the LLM tried to make.
+                Optional 0G trace anchoring when configured.
               </p>
               <LiveProtocolStats />
               <div className="mt-8 flex flex-wrap gap-4">
@@ -129,7 +131,7 @@ export function LandingPage() {
             </h2>
             <p className="mt-2 text-sm text-muted max-w-2xl">
               Policy checks, execution traces, and rationale hashes — all independently verifiable
-              on Mantle. No mocks, no trust required.
+              on Mantle. No mocks — tamper-evident proofs on-chain.
             </p>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {proofCards.map((card) => (

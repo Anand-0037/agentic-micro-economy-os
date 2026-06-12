@@ -55,7 +55,7 @@ export const archivedCycles: CycleSummary[] = [
 ];
 
 export const archivedEventLines = [
-  "[ARCHIVE] cycle=cyc_75f3a053 — observe Mantle RPC + Bybit MNTUSDT balances",
+  "[ARCHIVE] cycle=cyc_75f3a053 — observe Mantle RPC + market signals",
   "[ARCHIVE] cycle=cyc_75f3a053 — z.ai/Groq/Gemini unavailable; local rules fallback selected",
   "[ARCHIVE] cycle=cyc_75f3a053 — guardrails passed before execution",
   "[ARCHIVE] cycle=cyc_75f3a053 — action executed on Mantle Sepolia tx=0x95481e...",

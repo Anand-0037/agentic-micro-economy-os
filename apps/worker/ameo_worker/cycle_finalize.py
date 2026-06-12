@@ -7,6 +7,7 @@ from typing import Any, Dict
 from .context import get_worker_context
 from .models import ActionPlan, ExecutionResult, ObservationSnapshot
 from .services.event_store import EventStore, EventType
+from .services.zero_g_storage import ZeroGAnchorResult
 from .logutil import log_struct
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ async def finalize_cycle_async(
     byreal_skill_result: Dict[str, Any] | None,
     pnl_value: float,
 ) -> None:
-    """0G anchor + on-chain DecisionLogged — runs off the hot path after cycle returns."""
+    """On-chain DecisionLogged — runs off the hot path after cycle returns."""
     ctx = get_worker_context()
     events = EventStore().get_cycle_events(cycle_id)
     trace_payload = {
@@ -36,47 +37,66 @@ async def finalize_cycle_async(
         "byreal_skill_result": byreal_skill_result,
     }
 
-    anchor = await asyncio.to_thread(
-        ctx.zero_g.anchor_trace, trace_payload, cycle_id=cycle_id
-    )
-    zero_g_data_hash: str | None = None
-
-    if anchor.anchored and anchor.root_hash:
-        zero_g_data_hash = anchor.root_hash
-        EventStore().emit(
-            cycle_id=cycle_id,
-            event_type=EventType.ZERO_G_ANCHOR_SUCCEEDED,
-            data={"root_hash": anchor.root_hash, "indexer_url": anchor.indexer_url},
+    anchor = ZeroGAnchorResult(root_hash=None, indexer_url=None, anchored=False)
+    if ctx.zero_g.is_configured():
+        anchor = await asyncio.to_thread(
+            ctx.zero_g.anchor_trace, trace_payload, cycle_id=cycle_id
         )
-    elif ctx.zero_g.is_configured():
-        EventStore().emit(
-            cycle_id=cycle_id,
-            event_type=EventType.ZERO_G_ANCHOR_FAILED,
-            data={"reason": "anchor_failed"},
-        )
-
-    if (
-        execution.ok
-        and plan.action_type != "no_op"
-        and ctx.onchain is not None
-    ):
-        rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
-        metadata_uri = anchor.root_hash if anchor.anchored and anchor.root_hash else "0g-upload-failed"
-        try:
-            pnl1e18 = int(round(pnl_value * 1e18))
-            log_result = await asyncio.to_thread(
-                ctx.onchain.log_decision,
-                ctx.settings.agent_token_id,
-                rationale_text,
-                pnl1e18,
-                plan.action_type,
-                metadata_uri,
-                zero_g_data_hash or metadata_uri,
-            )
-            log_struct(
-                "onchain_decision_logged",
+        if anchor.anchored and anchor.root_hash:
+            EventStore().emit(
                 cycle_id=cycle_id,
-                tx_hash=log_result.get("tx_hash") if isinstance(log_result, dict) else None,
+                event_type=EventType.ZERO_G_ANCHOR_SUCCEEDED,
+                data={"root_hash": anchor.root_hash, "indexer_url": anchor.indexer_url},
             )
-        except Exception as exc:
-            logger.warning("onchain_log_failed cycle=%s error=%s", cycle_id, exc)
+        else:
+            EventStore().emit(
+                cycle_id=cycle_id,
+                event_type=EventType.ZERO_G_ANCHOR_FAILED,
+                data={"reason": "anchor_failed"},
+            )
+
+    if ctx.onchain is None or plan.action_type == "no_op":
+        return
+
+    blocked = execution.command == "guardrail_blocked" or (
+        not execution.ok and bool(violations)
+    )
+    if not execution.ok and not blocked:
+        return
+
+    if blocked:
+        action_type = "policy_blocked"
+        rationale_text = (
+            f"Policy blocked: {', '.join(violations)}. "
+            f"{plan.rationale_summary or plan.rationale or ''}"
+        ).strip()
+    else:
+        action_type = plan.action_type
+        rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
+
+    metadata_uri = (
+        anchor.root_hash
+        if anchor.anchored and anchor.root_hash
+        else f"ameo://cycle/{cycle_id}"
+    )
+    data_hash = anchor.root_hash or metadata_uri
+
+    try:
+        pnl1e18 = int(round(pnl_value * 1e18))
+        log_result = await asyncio.to_thread(
+            ctx.onchain.log_decision,
+            ctx.settings.agent_token_id,
+            rationale_text,
+            pnl1e18,
+            action_type,
+            metadata_uri,
+            data_hash,
+        )
+        log_struct(
+            "onchain_decision_logged",
+            cycle_id=cycle_id,
+            tx_hash=log_result.get("tx_hash") if isinstance(log_result, dict) else None,
+            action_type=action_type,
+        )
+    except Exception as exc:
+        logger.warning("onchain_log_failed cycle=%s error=%s", cycle_id, exc)

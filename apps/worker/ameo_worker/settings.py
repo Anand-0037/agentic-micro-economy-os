@@ -31,17 +31,15 @@ class Settings(BaseSettings):
     treasury_eoa: str = Field("", alias="TREASURY_EOA")
     treasury_private_key: str = Field("", alias="TREASURY_PRIVATE_KEY")
     agent_private_key: str = Field("", alias="AGENT_PRIVATE_KEY")
+    identity_owner_private_key: str = Field("", alias="IDENTITY_OWNER_PRIVATE_KEY")
+    identity_auto_mint: bool = Field(False, alias="IDENTITY_AUTO_MINT")
     agent_identity_address: str = Field(
         "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc", alias="AGENT_IDENTITY_ADDRESS"
     )
     agent_token_id: int = Field(0, alias="AGENT_TOKEN_ID")
-    agent_eoa: str = Field(
-        "0xFB76C4B6912bCF358752Fb4b4b15B959EfaDD915", alias="AGENT_EOA"
-    )
+    agent_eoa: str = Field("", alias="AGENT_EOA")
 
     execution_adapter: str = Field("fusionx_v2", alias="EXECUTION_ADAPTER")
-    merchant_moe_router: str = Field("", alias="MERCHANT_MOE_ROUTER")
-    merchant_moe_factory: str = Field("", alias="MERCHANT_MOE_FACTORY")
     fusionx_v2_router: str = Field(
         "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033", alias="FUSIONX_V2_ROUTER"
     )
@@ -65,9 +63,9 @@ class Settings(BaseSettings):
     dex_slippage_bps: int = Field(100, alias="DEX_SLIPPAGE_BPS")
     dex_swap_deadline_sec: int = Field(300, alias="DEX_SWAP_DEADLINE_SEC")
 
-    llm_provider: str = Field("z_ai", alias="LLM_PROVIDER")
+    llm_provider: str = Field("groq", alias="LLM_PROVIDER")
     llm_provider_chain: str = Field(
-        "z_ai,groq,gemini,local_rules", alias="LLM_PROVIDER_CHAIN"
+        "groq,z_ai,gemini,local_rules", alias="LLM_PROVIDER_CHAIN"
     )
     z_ai_api_key: str = Field("", alias="Z_AI_API_KEY")
     z_ai_base_url: str = Field("https://api.z.ai/api/paas/v4", alias="Z_AI_BASE_URL")
@@ -102,7 +100,7 @@ class Settings(BaseSettings):
     live_enabled: bool = Field(True, alias="LIVE_ENABLED")
     worker_mode: str = Field("live_limited", alias="WORKER_MODE")
     max_daily_volume_usd: float = Field(500.0, alias="MAX_DAILY_VOLUME_USD")
-    max_position_usd: float = Field(500.0, alias="MAX_POSITION_USD")
+    max_position_usd: float = Field(250.0, alias="MAX_POSITION_USD")
     max_drawdown_pct: float = Field(0.12, alias="MAX_DRAWDOWN_PCT")
     asset_whitelist: str = Field("USDC,MNT,WMNT", alias="ASSET_WHITELIST")
     prompt_set_version: str = Field("v1", alias="PROMPT_SET_VERSION")

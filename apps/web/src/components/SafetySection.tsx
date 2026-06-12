@@ -64,7 +64,7 @@ export function SafetySection({
           <ul className="mt-1 text-[10px] text-muted pl-4 list-disc space-y-0.5">
             <li>✓ MaxDrawdownCheck (drawdown cap: {guardrails[0]?.value || "12% cap"})</li>
             <li>✓ AssetWhitelistCheck (allowed: {guardrails[1]?.value || "USDC, MNT"})</li>
-            <li>✓ TradeSizeCheck (limit: {guardrails[2]?.value || "$500 max trade"})</li>
+            <li>✓ TradeSizeCheck (limit: {guardrails[2]?.value || "$250 max trade"})</li>
             <li>✓ GasBudgetCheck (gas budget cap: 0.05 MNT/cycle)</li>
             <li>✓ MinimumBalanceCheck (min balance: 5.0 MNT)</li>
             <li>✓ SlippageToleranceCheck (slippage tolerance: {slippagePct}% cap)</li>

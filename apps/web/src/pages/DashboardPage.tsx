@@ -17,23 +17,29 @@ import { mapCycleDetailToCycleData } from "../lib/cycleData";
 import { formatBalance, shortHash } from "../lib/dashboardFormat";
 import { isTreasuryEmpty, resolveBlockState } from "../lib/blockState";
 import { humanizePolicy } from "../lib/policyHumanize";
-import { archivedCycles, archivedTreasuryBalances } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
   const { data, isLoading, isError } = useCyclesList(6, 0);
-  const cycles = isError ? archivedCycles : (data?.cycles ?? []);
-  const archived = isError;
+  const cycles = data?.cycles ?? [];
 
   if (isLoading) {
     return (
       <div className="soft-card p-3 text-xs text-muted font-mono">Loading recent cycles from event store…</div>
     );
   }
+  if (isError) {
+    return (
+      <div className="soft-card p-3 text-xs text-muted font-mono border border-amber-400 bg-amber-50">
+        Live worker unavailable. Check VITE_WORKER_URL and retry.
+      </div>
+    );
+  }
+
   if (cycles.length === 0) {
     return (
       <div className="soft-card p-3 text-xs text-muted font-mono border border-dashed">
-        No cycles recorded yet. Trigger a cycle from the control strip above — the full cognition replay (with volatility rebalance callouts and policy rejection badges) will appear here and on the Replay page.
+        No cycles recorded yet. Trigger a cycle from the control strip above.
       </div>
     );
   }
@@ -41,16 +47,8 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
   return (
     <div className="soft-card p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-display text-sm font-semibold text-ink">
-          {archived ? "Archived proof runs" : "Recent real cycles"}
-        </h3>
-        {archived ? (
-          <span className="border border-amber-400 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
-            Live API unavailable
-          </span>
-        ) : (
-          <a href="/app/decisions" className="text-[10px] text-accent underline">View all →</a>
-        )}
+        <h3 className="font-display text-sm font-semibold text-ink">Recent cycles</h3>
+        <a href="/app/decisions" className="text-[10px] text-accent underline">View all →</a>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {cycles.map((c: CycleSummary) => {
@@ -80,19 +78,12 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
                 {verifyUrl && (
                   <a href={verifyUrl} target="_blank" rel="noreferrer" className="text-accent underline">MantleScan ↗</a>
                 )}
-                {!archived ? (
-                  <a href={replayUrl} className="text-accent underline">Replay &amp; verify →</a>
-                ) : null}
+                <a href={replayUrl} className="text-accent underline">Replay &amp; verify →</a>
               </div>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 text-[10px] text-muted">
-        {archived
-          ? "Archived from local worker event logs so judges still see completed policy-bound runs when the live worker is asleep or unreachable."
-          : "⚡ Volatility rebalances and ⚠️ policy rejections are computed from real plan/policy events in the worker and shown with badges here + dramatic callouts + credibility ladder in the full Replay view."}
-      </p>
     </div>
   );
 }
@@ -133,7 +124,7 @@ export function DashboardPage() {
   // Policy rows now sourced from /v1/config (ameoConfig) — single source of truth, no more separate /api/policy poll here.
 
   const liveBalances = status?.observation?.balances ?? {};
-  const balances = statusError ? archivedTreasuryBalances : liveBalances;
+  const balances = liveBalances;
   const macroSignals = status?.observation?.macro_signals ?? {};
   const tickersRaw = (macroSignals as Record<string, unknown>).tickers ?? {};
   const fundingRaw = (macroSignals as Record<string, unknown>).funding ?? {};
@@ -406,7 +397,7 @@ export function DashboardPage() {
           ) : (
             <div className="text-xs text-muted font-mono">Loading scheduler status from worker...</div>
           )}
-          <p className="mt-2 text-[10px] text-muted">Real cycles execute observe (Mantle RPC + Bybit MNTUSDT) → reason (z.ai/Groq/Gemini + rules) → policy (7 predicates) → execute (FusionX V2) → prove (0G + DecisionLogged).</p>
+          <p className="mt-2 text-[10px] text-muted">Real cycles: observe → reason (Groq/z.ai/Gemini) → policy (7 predicates) → execute (FusionX V2 or treasury_ping) → prove (DecisionLogged on Mantle; 0G optional).</p>
 
           {latestCycleDetail?.summary?.tx_hash && (
             <div className="mt-3 pt-2 border-t border-border text-[10px] font-mono text-ink/70 flex flex-wrap gap-x-3 gap-y-0.5">

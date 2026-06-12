@@ -1,13 +1,15 @@
-# AMEO — Policy guardrails for autonomous agents on Mantle
+# AMEO — Policy-enforced AI trading agent on Mantle
 
-> **The AI suggests. Policy decides. Anyone can verify.**
+> **AMEO is a policy-enforced AI trading agent on Mantle that can prove — with on-chain DecisionLogged events — when it refused a risky trade the LLM tried to make. Optional 0G trace anchoring when configured.**
 >
-> **Turing Test Hackathon 2026**
-> - **Primary Track:** Track 6 — Bybit x Mantle: On-Chain Benchmarking of AI / Agentic Wallets & Economy
-> - **Secondary Tracks:** Best Infrastructure · Best Public Good · Best UI/UX
+> The AI suggests. Policy decides. Anyone can verify.
+>
+> **DoraHacks Turing Test Hackathon 2026**
+> - **Primary Track:** AI Trading & Strategy (BGA-sponsored)
+> - **Secondary Track:** AI Alpha & Data
 > - **BUIDL ID:** #44123
 
-Trust infrastructure for autonomous finance. AMEO enforces policy guardrails **outside the LLM** — before execution, not after. Every decision produces a permanent, independently verifiable record on Mantle via ERC-8004-inspired identity + 0G Storage + DecisionLogged events.
+AMEO enforces policy guardrails **outside the LLM** — before execution, not after. Every decision produces a tamper-evident record on Mantle via ERC-8004-inspired identity + `DecisionLogged` events. Full cognition traces can be anchored to 0G Storage when `ZERO_G_*` is configured.
 
 **Three defining features:**
 1. **Policy enforcement outside the LLM** — 7 guardrails checked before every execution (max drawdown, whitelist, trade size, gas budget, etc. dynamically configured via `/v1/config`)
@@ -46,10 +48,10 @@ The verify endpoint returns transparent proof for every decision — policy chec
 3. **Policy check (outside LLM)** — 7 hard rules are checked **before execution**:
    - Max drawdown limit (dynamically set in `/v1/config`, e.g., 12% cap)
    - Asset whitelist (USDC, MNT only)
-   - Trade size cap (dynamically set in `/v1/config`, e.g., $500 max)
+   - Trade size cap (dynamically set in `/v1/config`, e.g., $250 max)
    - Gas budget limit
    - Minimum balance requirements
-   - Slippage tolerance (dynamically set in `/v1/config`, e.g., 2% max)
+   - Slippage tolerance (dynamically set in `/v1/config`, e.g., 1% max)
    - Execution frequency limits
 4. **Execute & log** — if the action passes all policy checks, AMEO settles via FusionX V2 DEX adapter (or treasury_ping testnet fallback), then emits `DecisionLogged` on the identity contract with full policy proof.
 
@@ -73,7 +75,12 @@ The verify endpoint returns transparent proof for every decision — policy chec
 | Settlement | Mantle Sepolia | Cheap, fast, MNT-paid gas |
 
 ### ERC-8004 Agent Registry Disclaimer
-While AMEO aligns with the spirit of the ERC-8004 standard for agent identity registries, the actual ERC-721 token representing the agent is issued on the Mantle Sepolia network. The agent identity contract records permanent `DecisionLogged` event traces mapped to this specific token ID. It is inspired by ERC-8004, but adapts it to the specific constraints and requirements of on-chain agent operations.
+While AMEO aligns with the spirit of the ERC-8004 standard for agent identity registries, the actual ERC-721 token representing the agent is issued on the Mantle Sepolia network. The agent identity contract records permanent `DecisionLogged` event traces mapped to this specific token ID. It is **inspired by ERC-8004, not claiming full compliance**.
+
+### Honest limitations (v1)
+- **Self-attestation:** The same hot EOA signs execution, writes `DecisionLogged`, and anchors 0G receipts. v1 is a tamper-evident audit log; v2 will bind logs to settlement tx hashes.
+- **Sepolia liquidity:** Thin DEX pools often force `treasury_ping` (degraded path) instead of FusionX V2 swaps. The UI labels this explicitly.
+- **Testnet keys:** Hot EOAs in `.env` are for hackathon demo only. Production path is KMS/MPC.
 
 ## Architecture
 
@@ -98,7 +105,7 @@ flowchart TB
         Graph["LangGraph Agent<br/>State: observation, plan, guardrail_ok, execution..."]
         subgraph Cycle["Cognition Cycle (per run_cycle)"]
             direction LR
-            N1["1. observe<br/>Mantle balances/gas + Bybit signals"]
+            N1["1. observe<br/>Mantle balances/gas + market signals"]
             N2["2. delta_neutral (lp_add + perps_hedge_proxy when vol high)"]
             N3["3. reason<br/>LLM (P-001 prompt) or rules fallback"]
             N4["4. plan<br/>Quote telemetry only"]
@@ -116,7 +123,7 @@ flowchart TB
         LLMs["LLM Providers<br/>z.ai (default) → Groq → Gemini → local_rules"]
         MNT["Mantle Sepolia<br/>RPC • FusionX V2 Router • AgentIdentity"]
         ZG["0G Storage (Galileo testnet)<br/>CLI upload full trace JSON → root hash"]
-        Signals["Bybit Public API (market context)"]
+        Signals["Public market API (optional context)"]
     end
 
     subgraph OnChain["On-Chain (Mantle Sepolia)"]
@@ -157,7 +164,7 @@ flowchart TB
 
 ### Cognition Loop Details (LangGraph nodes in `apps/worker/ameo_worker/graph.py`)
 
-1. **observe** — Pull treasury balances (MNT/USDC), gas price, block, optional Bybit market context. Quality score.
+1. **observe** — Pull treasury balances (MNT/USDC), gas price, block, optional market context. Quality score.
 2. **reason** — Structured LLM call (or rules_planner fallback on provider failure) producing `ActionPlan` (swap / no_op / ...). Injects recent learnings.
 3. **plan** — Optional `mantle.swap.v1` quote telemetry invocation (non-settling).
 4. **guardrail** — `GuardrailService` runs `PolicyEngine.validate` + extra checks (observation quality, balance sufficiency, gas spike, protocol whitelist, daily volume). **This is the trust boundary.**
@@ -249,5 +256,5 @@ Deployed worker API: https://agentic-micro-economy-os.onrender.com
 
 ### Turing Test Hackathon 2026 Submission Summary
 - **BUIDL #44123**
-- **Primary Target:** Track 6 — Bybit x Mantle: On-Chain Benchmarking of AI / Agentic Wallets & Economy
-- **Awards Targeted:** Best Infrastructure, Best Public Good, Best UI/UX
+- **Primary Track:** AI Trading & Strategy (BGA-sponsored)
+- **Secondary Track:** AI Alpha & Data

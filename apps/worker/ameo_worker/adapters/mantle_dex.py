@@ -71,7 +71,7 @@ _ROUTER_ABI = [
         "stateMutability": "view",
         "type": "function",
     },
-    # LP add/remove (Uniswap V2 style - supported by FusionX V2 (primary) / Merchant Moe (legacy) routers on Mantle)
+    # LP add/remove (Uniswap V2 style - FusionX V2 router on Mantle Sepolia)
     {
         "inputs": [
             {"name": "tokenA", "type": "address"},
@@ -158,8 +158,8 @@ _WETH9_ABI = [
 
 
 class MantleDexAdapter:
-    """Native Mantle DEX execution via FusionX V2 (Uniswap V2-style router; legacy Merchant Moe alias support).
-    Now supports swaps + lp_add/lp_remove + perps_hedge_proxy for delta-neutral plans.
+    """Native Mantle DEX execution via FusionX V2 (Uniswap V2-style router on Sepolia).
+    Supports swaps + lp_add/lp_remove + perps_hedge_proxy; falls back to treasury_ping when liquidity is thin.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -692,13 +692,9 @@ class MantleDexAdapter:
             )
 
     def _router_config(self) -> Tuple[str, str]:
-        candidates = [
-            (self._settings.fusionx_v2_router, "fusionx_v2"),
-            (self._settings.merchant_moe_router, "fusionx_v2"),
-        ]
-        for addr, label in candidates:
-            if addr and self._has_code(addr):
-                return self._w3.to_checksum_address(addr), label
+        router = self._settings.fusionx_v2_router
+        if router and self._has_code(router):
+            return self._w3.to_checksum_address(router), "fusionx_v2"
         return "", ""
 
     def _resolve_wmnt_address(self) -> str:

@@ -87,11 +87,17 @@ def main() -> int:
                 f"Skipping AgentIdentity mint (balance {w3.from_wei(agent_balance, 'ether')} MNT "
                 f"< ~0.005 MNT reserve at gas {gas_price})."
             )
+        elif not settings.identity_auto_mint:
+            print(
+                "NFT not minted. One-shot: set IDENTITY_AUTO_MINT=true + IDENTITY_OWNER_PRIVATE_KEY, "
+                "run this script, then remove both from Render."
+            )
         else:
             try:
                 logger = OnchainLogger(settings)
                 token_id = logger._ensure_agent_minted(settings.agent_token_id, agent)
                 print(f"Agent NFT ready: tokenId={token_id}")
+                print("Remove IDENTITY_OWNER_PRIVATE_KEY and IDENTITY_AUTO_MINT from production env.")
             except Exception as exc:
                 print(f"AgentIdentity mint skipped: {exc}")
 

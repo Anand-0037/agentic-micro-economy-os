@@ -14,7 +14,7 @@ class PolicyConfig:
     """Policy constraints for the agent."""
 
     max_drawdown_pct: float = 0.12
-    max_position_usd: float = 500.0
+    max_position_usd: float = 250.0
     max_asset_exposure_pct: float = 0.4
     hedge_drift_pct: float = 0.05
     allowed_assets: Iterable[str] = field(default_factory=list)
@@ -99,18 +99,23 @@ def policy_config_from_settings(settings: "Settings") -> PolicyConfig:
 def serialize_default_policy(settings: Optional["Settings"] = None) -> Dict[str, Any]:
     """JSON-serializable policy for operator UI and docs alignment."""
     if settings is not None:
+        from .identity_status import effective_max_daily_volume_usd
+
         config = policy_config_from_settings(settings)
+        daily_cap = effective_max_daily_volume_usd(settings)
     else:
         config = PolicyConfig()
+        daily_cap = 500.0
     return {
         "max_drawdown_pct": config.max_drawdown_pct,
         "max_position_usd": config.max_position_usd,
+        "max_daily_volume_usd": daily_cap,
         "max_asset_exposure_pct": config.max_asset_exposure_pct,
         "hedge_drift_pct": config.hedge_drift_pct,
         "allowed_assets": list(config.allowed_assets),
         "allowed_protocols": list(config.allowed_protocols),
         "notes": (
-            "Empty allowed_assets / allowed_protocols lists disable those filters. "
-            "MAX_POSITION_USD in env overrides default when set positive."
+            "Enforced caps use code defaults when env is 0: max_position_usd=250, "
+            "max_daily_volume_usd=500."
         ),
     }

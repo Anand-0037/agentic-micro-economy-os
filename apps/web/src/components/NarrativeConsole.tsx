@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef } from "react";
 import { useAmeoUi } from "../context/AmeoUiContext";
 import { useEventTail, type EventLine } from "../hooks/useEventTail";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
-import { archivedEventLines } from "../lib/judgeSnapshot";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 function formatEventLine(event: EventLine): string {
@@ -72,8 +71,8 @@ export function NarrativeConsole() {
     lines.length > 0
       ? lines.map(formatEventLine)
       : idle
-        ? archivedEventLines
-        : [];
+        ? ["[INFO] Worker idle — waiting for next cycle."]
+        : ["[INFO] Connecting to worker event stream…"];
 
   const lastEvent = lines[lines.length - 1];
   const footerMeta = useMemo(() => {
@@ -128,7 +127,7 @@ export function NarrativeConsole() {
           <span className="animate-pulse font-semibold text-muted">
             &gt; {idle || lines.length === 0
               ? lines.length === 0
-                ? "archived worker events · live SSE unavailable"
+                ? "waiting for events · connect worker SSE"
                 : `idle · 30min scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ''}`
               : "streaming JSONL tail"}
           </span>
