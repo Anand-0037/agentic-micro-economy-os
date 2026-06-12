@@ -19,7 +19,7 @@ from ameo_worker.identity_status import (  # noqa: E402
 )
 from ameo_worker.settings import get_settings  # noqa: E402
 
-DEFAULT_ADDR = "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc"
+DEFAULT_ADDR = "0xB86dC64573089D8DD89C5686010295bB4412D652"
 
 
 def _bytecode_hint(rpc: str, addr: str) -> None:

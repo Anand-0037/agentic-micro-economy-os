@@ -3,6 +3,24 @@ title: "Changelog"
 description: "What's new in AMEO."
 ---
 
+<Update label="June 12, 2026" tags={["release"]}>
+
+## New
+
+**Fresh AgentIdentity deployment (bytecode-verified)**
+Canonical contract `0xB86dC64573089D8DD89C5686010295bB4412D652` on Mantle Sepolia — Sourcify `exact_match` with local `forge build` artifact. Agent NFT token `0` minted to burner `0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165`.
+
+**`/v1/identity/status`**
+Preflight endpoint reports `ready: true` when the signing EOA owns the configured token id.
+
+## Improvements
+
+- Policy caps (`250` / `500`) exposed consistently from `/v1/config` and `/health`.
+- DEX execution degrades to labeled `treasury_ping` on Sepolia revert instead of raw `execution reverted`.
+- LLM primary provider default: Groq.
+
+</Update>
+
 <Update label="May 29, 2026" tags={["release"]}>
 
 ## New

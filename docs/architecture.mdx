@@ -10,45 +10,17 @@ Every component described here is implemented in this repository — not mocked 
 ## System context (overview)
 
 ```mermaid
-flowchart TB
-  subgraph operator
-    Op[Operator / Auditor]
-  end
-  subgraph frontend
-    UI[Web Narrative Console\nReact + wagmi + replay rail]
-  end
-  subgraph worker
-    API[FastAPI v1 + SSE]
-    LG[LangGraph: observe→reason→plan→guardrail→act→self_heal→log]
-    POL[Policy Engine + GuardrailService]
-    DEX[MantleDexAdapter]
-    FIN[finalize: 0G + onchain]
-  end
-  subgraph data
-    DB[(SQLite MemoryDB)]
-    JSONL[(JSONL EventStore)]
-  end
-  subgraph ext
-    LLM[LLM chain + rules]
-    MNT[Mantle RPC + DEX + Identity]
-    ZG[0G Storage]
-  end
-  Op --> UI
-  UI --> API
-  API --> LG
-  LG --> POL
-  LG --> DEX
-  LG --> FIN
-  FIN --> ZG
-  FIN --> MNT
-  POL -.->|outside LLM| LG
-  LG --> DB
-  LG --> JSONL
-  DB --> API
-  JSONL --> API
-  API --> UI
-  MNT --> API
+flowchart LR
+  UI[Web console] --> API[FastAPI]
+  API --> LG[LangGraph]
+  LG --> POL[Policy Python]
+  POL --> ACT[DEX or treasury_ping]
+  ACT --> ID[AgentIdentity 0xB86d…]
+  LG --> STORE[JSONL + SQLite]
+  STORE --> UI
 ```
+
+**Live contract:** `0xB86dC64573089D8DD89C5686010295bB4412D652` · **signer:** `0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165`
 
 ## Components
 

@@ -348,13 +348,9 @@ class MantleDexAdapter:
         try:
             quote = self.quote(token_in, token_out, amount_in)
         except Exception as exc:
-            classification = self.classify_failure(str(exc))
-            return ExecutionResult(
-                ok=False,
-                command="swap",
-                dry_run=False,
-                error=str(exc),
-                raw_output={"failure_class": classification},
+            return self._treasury_ping(
+                self._to_wei(max(amount_in, 0.000001), 18),
+                reason=f"swap_quote_failed:{str(exc)[:80]}",
             )
 
         router = quote["router"]
@@ -387,13 +383,9 @@ class MantleDexAdapter:
 
             return self._send_transaction(tx, command="swap")
         except Exception as exc:
-            classification = self.classify_failure(str(exc))
-            return ExecutionResult(
-                ok=False,
-                command="swap",
-                dry_run=False,
-                error=str(exc),
-                raw_output={"failure_class": classification, "quote": quote},
+            return self._treasury_ping(
+                self._to_wei(max(amount_in, 0.000001), 18),
+                reason=f"swap_reverted:{str(exc)[:80]}",
             )
 
     def execute_swap(
@@ -627,13 +619,9 @@ class MantleDexAdapter:
                 result.raw_output["protocol"] = "wmnt_deposit"
             return result
         except Exception as exc:
-            classification = self.classify_failure(str(exc))
-            return ExecutionResult(
-                ok=False,
-                command="wrap_mnt",
-                dry_run=False,
-                error=str(exc),
-                raw_output={"failure_class": classification},
+            return self._treasury_ping(
+                max(amount_wei, 1),
+                reason=f"wrap_mnt_reverted:{str(exc)[:80]}",
             )
 
     def _mantle_native_transfer_cost(self, gas: int, gas_price: int, value: int) -> int:

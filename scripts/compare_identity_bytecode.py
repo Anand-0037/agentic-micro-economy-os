@@ -14,7 +14,7 @@ from pathlib import Path
 from web3 import Web3
 
 DEFAULT_RPC = "https://rpc.sepolia.mantle.xyz"
-DEFAULT_ADDR = "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc"
+DEFAULT_ADDR = "0xB86dC64573089D8DD89C5686010295bB4412D652"
 
 def main():
     rpc = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_RPC

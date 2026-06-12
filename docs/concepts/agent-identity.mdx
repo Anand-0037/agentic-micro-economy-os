@@ -5,6 +5,15 @@ description: "[ERC-8004](/glossary#erc-8004)-inspired on-chain identity and Deci
 
 AMEO binds every material decision to an **agent identity NFT** deployed as `MantleAgentIdentity` — an ERC-8004-*inspired* contract (see contract header for compliance deltas vs the reference implementation).
 
+## Live deployment (Mantle Sepolia)
+
+| Field | Value |
+| --- | --- |
+| `AGENT_IDENTITY_ADDRESS` | `0xB86dC64573089D8DD89C5686010295bB4412D652` |
+| Agent token id | `0` |
+| NFT owner (signer) | `0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165` |
+| Preflight | `GET /v1/identity/status` → `ready: true` |
+
 ## What's in the NFT
 
 Each agent is an ERC-721 token minted to an operator address. The contract stores the **latest** decision snapshot per token; full history lives in **`DecisionLogged` events**.

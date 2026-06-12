@@ -47,11 +47,15 @@ Smoke test:
 cd apps/worker && uv run python ../../scripts/exec-smoke.py
 ```
 
-## Mint your own agent identity
+## Agent identity (use live deployment or mint your own)
 
-1. Deploy contract (see [Contracts](/api/contracts)).
-2. `cast send $CONTRACT "mintAgent(address)" $YOUR_EOA --rpc-url $MANTLE_RPC_URL --private-key $DEPLOYER_KEY`
-3. Set `AGENT_IDENTITY_ADDRESS`, `AGENT_TOKEN_ID`, `AGENT_PRIVATE_KEY` in `.env`.
+**Hackathon / demo:** use the canonical live contract — no redeploy needed:
+
+- `AGENT_IDENTITY_ADDRESS=0xB86dC64573089D8DD89C5686010295bB4412D652`
+- `AGENT_EOA=0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165` (must match `AGENT_PRIVATE_KEY`)
+- `AGENT_TOKEN_ID=0` · confirm with `GET /v1/identity/status` → `ready: true`
+
+**Private fork:** deploy + `cast send $CONTRACT "mintAgent(address)" $YOUR_EOA ...` — see [Contracts](/api/contracts).
 
 ## Docker alternative
 

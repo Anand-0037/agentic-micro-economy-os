@@ -34,10 +34,11 @@ Minimum worker variables (`.env`):
 | `MANTLE_CHAIN_ID` | `5003` for Sepolia |
 | `TREASURY_EOA` | Hot wallet address that holds test funds |
 | `AGENT_PRIVATE_KEY` | Signing key for execution (dev only — never commit) |
-| `AGENT_IDENTITY_ADDRESS` | Deployed `MantleAgentIdentity` contract |
-| `AGENT_TOKEN_ID` | Minted agent NFT id |
+| `AGENT_IDENTITY_ADDRESS` | `0xB86dC64573089D8DD89C5686010295bB4412D652` (live Sepolia) |
+| `AGENT_EOA` | Must match `AGENT_PRIVATE_KEY` (live: `0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165`) |
+| `AGENT_TOKEN_ID` | `0` |
 | `WORKER_MODE` | `dry_run` for first boot; `live_limited` when funded |
-| `LLM_PROVIDER` | `z_ai`, `groq`, `gemini`, or `local_rules` |
+| `LLM_PROVIDER` | `groq` recommended; chain `groq,z_ai,gemini,local_rules` |
 
 Minimum web variables (`apps/web/.env`):
 

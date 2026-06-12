@@ -27,17 +27,17 @@ AMEO enforces policy guardrails **outside the LLM** — before execution, not af
 
 | Step | What you'll see | Link |
 | --- | --- | --- |
-| 1. Verified agent contract | ERC-8004-inspired identity on Mantlescan | [`0xEc14…1daCc`](https://sepolia.mantlescan.xyz/address/0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc#code) |
-| 2. Real execution tx | Any recent `DecisionLogged` event from the live console | Open [ameo.agiwithai.com](https://ameo.agiwithai.com) |
-| 3. API verification | Canonical Verify Example: [`0x51f83b…f027e`](https://agentic-micro-economy-os.onrender.com/v1/verify/0x51f83b8b60bb47b0a8f8d22f997db8311a2f027e) | [Verify Endpoint](https://agentic-micro-economy-os.onrender.com/v1/verify/0x51f83b8b60bb47b0a8f8d22f997db8311a2f027e) |
+| 1. Verified agent contract | ERC-8004-inspired identity (Sourcify verified) | [`0xB86d…2D652`](https://sepolia.mantlescan.xyz/address/0xB86dC64573089D8DD89C5686010295bB4412D652) |
+| 2. Real `DecisionLogged` tx | Live worker cycle (check `/api/decisions`) | [ameo.agiwithai.com](https://ameo.agiwithai.com) |
+| 3. API verification | `GET /v1/verify/{txHash}` for any logged decision | [Worker API](https://agentic-micro-economy-os.onrender.com/v1/config) |
 | 4. Full decision replay | Every policy check, rationale, and settlement trace | [ameo.agiwithai.com/app/replay](https://ameo.agiwithai.com/app/replay) |
 
 The verify endpoint returns transparent proof for every decision — policy checks, rationale hashes, and execution traces.
 
 ### Deployed Addresses & Registry
 
-- **Signer EOA:** [`0x47933b98Be8Feedf63dE822B3ce7408D027B4108`](https://sepolia.mantlescan.xyz/address/0x47933b98Be8Feedf63dE822B3ce7408D027B4108)
-- **Agent Identity (Registry):** [`0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc`](https://sepolia.mantlescan.xyz/address/0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc)
+- **Burner wallet (owner + agent signer + treasury):** [`0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165`](https://sepolia.mantlescan.xyz/address/0x59ffc8907beaA275F29B466BCB1D9BbfeaDAd165)
+- **Agent Identity (Registry):** [`0xB86dC64573089D8DD89C5686010295bB4412D652`](https://sepolia.mantlescan.xyz/address/0xB86dC64573089D8DD89C5686010295bB4412D652) · token `0` minted to burner
 - **Live Worker API:** [https://agentic-micro-economy-os.onrender.com](https://agentic-micro-economy-os.onrender.com)
 - **Web Console:** [https://ameo.agiwithai.com](https://ameo.agiwithai.com)
 
@@ -88,79 +88,25 @@ AMEO is built around **verifiable cognition**: every agent decision produces ind
 
 Policy enforcement is **outside the LLM** in pure Python. The LLM only proposes; the guardrails decide.
 
-### System Diagram
+### System diagram (minimal)
 
 ```mermaid
-flowchart TB
-    subgraph Users["Users / Operators / Auditors / MCP Clients"]
-        UI["Narrative Console (Web UI)<br/>React + TanStack Query + framer-motion + wagmi<br/>Dashboard, Replay, Decisions, Eval"]
-        SDK["@ameo/sdk (TypeScript)"]
-        MCP["@ameo/mcp Server<br/>Claude Desktop / Cursor tools"]
-    end
-
-    subgraph Worker["Worker Service (FastAPI + LangGraph)"]
-        direction TB
-        HTTP["REST API + SSE<br/>/v1/* (decisions, cycles, verify/{tx}, policy, status, events/tail)"]
-        Sched["APS Scheduler<br/>(30min production ticks) + Runner loop"]
-        Graph["LangGraph Agent<br/>State: observation, plan, guardrail_ok, execution..."]
-        subgraph Cycle["Cognition Cycle (per run_cycle)"]
-            direction LR
-            N1["1. observe<br/>Mantle balances/gas + market signals"]
-            N2["2. delta_neutral (lp_add + perps_hedge_proxy when vol high)"]
-            N3["3. reason<br/>LLM (P-001 prompt) or rules fallback"]
-            N4["4. plan<br/>Quote telemetry only"]
-            N5["5. guardrail<br/>PolicyEngine + GuardrailService<br/>(deterministic, outside LLM)"]
-            N6["6. act<br/>MantleDexAdapter (FusionX) or no_op/ping"]
-            N7["7. self_heal (retries on RPC)"]
-            N8["8. log + finalize_async"]
-        end
-        Final["finalize: 0G anchor + onchain logDecision"]
-        PersistW["EventStore (JSONL) + MemoryDB (SQLite) + CycleStore"]
-    end
-
-    subgraph External["External Systems"]
-        direction LR
-        LLMs["LLM Providers<br/>z.ai (default) → Groq → Gemini → local_rules"]
-        MNT["Mantle Sepolia<br/>RPC • FusionX V2 Router • AgentIdentity"]
-        ZG["0G Storage (Galileo testnet)<br/>CLI upload full trace JSON → root hash"]
-        Signals["Public market API (optional context)"]
-    end
-
-    subgraph OnChain["On-Chain (Mantle Sepolia)"]
-        ID["AgentIdentity.sol<br/>ERC-721 per agent<br/>DecisionLogged events (rationaleHash, signedPnL1e18, actionType, metadataUri, dataHash)"]
-        DEX["DEX Routers (settlement)"]
-    end
-
-    %% Flows
-    UI -->|poll + SSE + manual trigger| HTTP
-    SDK -->|decisions.create, verify, agents| HTTP
-    MCP -->|register_agent, submit_decision, verify_decision| HTTP
-
-    Sched -->|run_cycle| Graph
-    HTTP -->|run_cycle| Graph
-    Graph --> N1 --> N2 --> N3 --> N4 --> N5 --> N6 --> N7 --> N8 --> Final
-    N3 --> LLMs
-    LLMs --> N3
-    N1 --> MNT
-    N6 --> MNT
-    Final -->|full trace JSON| ZG
-    Final -->|logDecision rationaleHash and metadataUri| ID
-    N5 -->|violations / pass| PersistW
-    N8 -->|structured events| PersistW
-    Final -->|history, PnL, learnings| PersistW
-
-    MNT -.->|DecisionLogged + tx receipt| HTTP
-    ID -.->|view / address on Mantlescan| UI
-    ZG -.->|indexer lookup by root| UI
-
-    PersistW -->|cycle detail replay from events| HTTP
-    HTTP -->|reconstruct 8-node rail + proof| UI
-
-    style Users fill:#f8f1e3,stroke:#3a2f1f
-    style Worker fill:#f8f1e3,stroke:#3a2f1f
-    style External fill:#f8f1e3,stroke:#3a2f1f
-    style OnChain fill:#f8f1e3,stroke:#3a2f1f
+flowchart LR
+  UI[Web console] --> API[FastAPI worker]
+  API --> LG[LangGraph cycle]
+  LG --> OBS[observe]
+  OBS --> REA[reason Groq chain]
+  REA --> POL[policy guardrails]
+  POL -->|pass| ACT[execute DEX or treasury_ping]
+  POL -->|block| LOG[logDecision policy_blocked]
+  ACT --> LOG
+  LOG --> CHAIN[Mantle AgentIdentity]
+  LG --> EVT[JSONL events + SQLite]
+  EVT --> UI
+  LOG -.->|optional| ZG[0G trace]
 ```
+
+**Trust boundary:** `policy guardrails` runs in Python **before** any tx is signed. The LLM only proposes.
 
 ### Cognition Loop Details (LangGraph nodes in `apps/worker/ameo_worker/graph.py`)
 
@@ -179,7 +125,7 @@ All steps emit typed events to daily `logs/events/events_YYYYMMDD.jsonl` for det
 
 - **SQLite** (`data/ameo.db` or configured `MEMORY_DB_PATH`): execution_history, pnl_snapshots, learnings. Used for `/api/history`, performance, trophies.
 - **JSONL events**: append-only source of truth for cycle reconstruction. Powers `/api/cycles/{id}` and the Replay UI's 8-node rail.
-- **On-chain**: `DecisionLogged` on the `AgentIdentity` ERC-721 (deployed at `0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc`). `rationaleHash` commits to reasoning; `metadataUri` / `dataHash` point at 0G trace. (See broadcast/ for exact deployment tx.)
+- **On-chain**: `DecisionLogged` on the `AgentIdentity` ERC-721 (deployed at `0xB86dC64573089D8DD89C5686010295bB4412D652`). `rationaleHash` commits to reasoning; `metadataUri` / `dataHash` point at 0G trace. (See broadcast/ for exact deployment tx.)
 - **0G**: Full structured trace (including every `guardrail_evaluated` violation) is the permanent off-chain record. Verifiable via indexer root hash.
 - **Verify path** (`/v1/verify/{txHash}`): on-chain match first → local event fallback (honest, no fabrication) → 404 with guidance.
 
@@ -242,7 +188,7 @@ Deployed worker API: https://agentic-micro-economy-os.onrender.com
 - **Policy enforcement is deterministic** — The 7 guardrails run in pure Python, not in the LLM. The LLM can propose anything; policy decides what executes.
 - The agent's signing key is a hot EOA in a `.env` file. That's fine for a testnet demo. For production, swap in KMS or MPC. We've isolated the key path so this is a one-file change.
 - Sepolia DEXes have thin liquidity, so when a swap can't fill cleanly, the agent falls back to a self-transfer (`treasury_ping`) that still proves the policy → signing → RPC path. We surface this honestly in the UI.
-- The LLM has a fallback chain: z.ai → Groq → Gemini → local rules. If every provider is down, the agent **refuses to act** rather than guessing. Policy still enforces even when LLMs fail.
+- The LLM has a fallback chain: Groq → z.ai → Gemini → local rules. If every provider is down, the agent **refuses to act** rather than guessing. Policy still enforces even when LLMs fail.
 
 ## Docs
 

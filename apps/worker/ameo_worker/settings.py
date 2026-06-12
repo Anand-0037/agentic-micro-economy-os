@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     identity_owner_private_key: str = Field("", alias="IDENTITY_OWNER_PRIVATE_KEY")
     identity_auto_mint: bool = Field(False, alias="IDENTITY_AUTO_MINT")
     agent_identity_address: str = Field(
-        "0xEc14f781DB5f5f350F26Bc10Fb8f654e1D91daCc", alias="AGENT_IDENTITY_ADDRESS"
+        "0xB86dC64573089D8DD89C5686010295bB4412D652", alias="AGENT_IDENTITY_ADDRESS"
     )
     agent_token_id: int = Field(0, alias="AGENT_TOKEN_ID")
     agent_eoa: str = Field("", alias="AGENT_EOA")
