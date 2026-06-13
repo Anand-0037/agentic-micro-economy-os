@@ -1,15 +1,26 @@
 import type { CycleDetail } from "../hooks/useCycles";
 
+export type StepVisualState = "complete" | "degraded" | "failed" | "neutral";
+
 export type CycleOutcome = {
   policyBlocked: boolean;
   executionOk: boolean;
   isTreasuryPing: boolean;
+  isLocalRules: boolean;
   hasTx: boolean;
   hasDecisionLog: boolean;
   cycleFailed: boolean;
 };
 
-export type StepVisualState = "complete" | "degraded" | "failed" | "neutral";
+export function plannerUsesLocalRules(detail: CycleDetail): boolean {
+  const planner = String(
+    (detail.plan as { planner?: string }).planner ??
+      detail.plan.planner_version ??
+      (detail.plan.plan as { planner?: string } | undefined)?.planner ??
+      "",
+  );
+  return planner.includes("local_rules");
+}
 
 export function deriveCycleOutcome(detail: CycleDetail): CycleOutcome {
   const policyBlocked =
@@ -19,6 +30,7 @@ export function deriveCycleOutcome(detail: CycleDetail): CycleOutcome {
   const isTreasuryPing =
     detail.summary.action_type === "treasury_ping" ||
     String(detail.execution?.calldata?.command ?? "").includes("treasury_ping");
+  const isLocalRules = plannerUsesLocalRules(detail);
   const hasTx = Boolean(detail.tx_hash?.hash || detail.summary.tx_hash);
   const hasDecisionLog = Boolean(
     detail.decision_log?.rationaleHash || detail.decision_log?.txHash,
@@ -31,6 +43,7 @@ export function deriveCycleOutcome(detail: CycleDetail): CycleOutcome {
     policyBlocked,
     executionOk,
     isTreasuryPing,
+    isLocalRules,
     hasTx,
     hasDecisionLog,
     cycleFailed,
@@ -92,11 +105,14 @@ export function replayNodeEvidenceLabel(
       }
       return "FAILED";
     case "tx":
-      if (outcome.hasTx && outcome.executionOk) {
-        return "SETTLED";
-      }
       if (outcome.policyBlocked && outcome.hasDecisionLog) {
         return "LOGGED";
+      }
+      if (outcome.isTreasuryPing && outcome.hasDecisionLog) {
+        return "DEGRADED";
+      }
+      if (outcome.hasTx && outcome.executionOk && !outcome.isTreasuryPing) {
+        return "SETTLED";
       }
       if (outcome.hasTx) {
         return "PARTIAL";
@@ -134,8 +150,9 @@ export function cognitionStepState(
 
   switch (stepIndex) {
     case 0:
-    case 1:
       return "complete";
+    case 1:
+      return outcome.isLocalRules ? "degraded" : "complete";
     case 2:
       return outcome.policyBlocked ? "failed" : "complete";
     case 3:
@@ -150,13 +167,19 @@ export function cognitionStepState(
       }
       return "failed";
     case 4:
-      if (outcome.hasTx && outcome.executionOk) {
-        return "complete";
-      }
       if (outcome.policyBlocked && outcome.hasDecisionLog) {
         return "complete";
       }
+      if (outcome.isTreasuryPing && outcome.hasDecisionLog) {
+        return "degraded";
+      }
+      if (outcome.hasTx && outcome.executionOk && !outcome.isTreasuryPing) {
+        return "complete";
+      }
       if (outcome.hasDecisionLog && !outcome.hasTx) {
+        return "degraded";
+      }
+      if (outcome.hasTx && outcome.isTreasuryPing) {
         return "degraded";
       }
       return "failed";
@@ -168,6 +191,7 @@ export function cognitionStepState(
 export function cognitionStepBadge(
   stepIndex: number,
   state: StepVisualState,
+  outcome?: CycleOutcome,
 ): string | null {
   if (state === "failed") {
     if (stepIndex === 2) {
@@ -181,15 +205,26 @@ export function cognitionStepBadge(
     }
   }
   if (state === "degraded") {
+    if (stepIndex === 1) {
+      return "Rules fallback";
+    }
     if (stepIndex === 3) {
       return "Degraded";
     }
     if (stepIndex === 4) {
-      return "Logged only";
+      return outcome?.policyBlocked
+        ? "Block logged"
+        : outcome?.isTreasuryPing
+          ? "Decision logged"
+          : "Logged only";
     }
   }
   if (state !== "complete") {
     return null;
+  }
+
+  if (stepIndex === 4 && outcome?.policyBlocked) {
+    return "Block logged";
   }
 
   const labels = ["Observed", "Planned", "Approved", "Executed", "Settled"];

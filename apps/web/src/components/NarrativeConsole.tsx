@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useAmeoUi } from "../context/AmeoUiContext";
 import { useEventTail, type EventLine } from "../hooks/useEventTail";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
+import { formatSchedulerInterval } from "../lib/dashboardFormat";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 function humanizeEventDetail(event: EventLine): string {
@@ -38,7 +39,7 @@ function humanizeEventDetail(event: EventLine): string {
   if (event.msg) {
     return event.msg;
   }
-  return eventType.replaceAll("_", " ");
+  return eventType.replace(/_/g, " ");
 }
 
 function formatEventLine(event: EventLine, summaryMode: boolean): string {
@@ -166,7 +167,7 @@ export function NarrativeConsole({ summaryMode = false }: NarrativeConsoleProps)
             &gt; {idle || lines.length === 0
               ? lines.length === 0
                 ? "waiting for events · connect worker SSE"
-                : `idle · 30min scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ''}`
+                : `idle · ${formatSchedulerInterval(schedulerInfo?.interval_minutes)} scheduler${schedulerInfo?.next_scheduled_tick ? ` (next: ${new Date(schedulerInfo.next_scheduled_tick).toLocaleTimeString()})` : ""}`
               : "streaming JSONL tail"}
           </span>
           <span

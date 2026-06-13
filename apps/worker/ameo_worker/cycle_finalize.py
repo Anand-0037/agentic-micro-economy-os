@@ -72,7 +72,10 @@ async def finalize_cycle_async(
             f"{plan.rationale_summary or plan.rationale or ''}"
         ).strip()
     else:
-        action_type = plan.action_type
+        if execution.command == "treasury_ping":
+            action_type = "treasury_ping"
+        else:
+            action_type = plan.action_type
         rationale_text = plan.rationale or plan.rationale_summary or "no_rationale"
 
     metadata_uri = (

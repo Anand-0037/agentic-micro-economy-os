@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 
 import { AgentControlStrip } from "../components/AgentControlStrip";
+import { AgentSignerNotice } from "../components/AgentSignerNotice";
 import { VerifyIn60sCard } from "../components/VerifyIn60sCard";
 import { DecisionsTable } from "../components/DecisionsTable";
 import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
@@ -14,7 +15,7 @@ import { useCyclesList, useCycle, type CycleSummary } from "../hooks/useCycles";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
 import { useAmeoConfig } from "../hooks/useAmeoConfig";
 import { mapCycleDetailToCycleData } from "../lib/cycleData";
-import { formatBalance, shortHash } from "../lib/dashboardFormat";
+import { formatBalance, shortHash, explorerTxUrl } from "../lib/dashboardFormat";
 import { isTreasuryEmpty, resolveBlockState } from "../lib/blockState";
 import { humanizePolicy } from "../lib/policyHumanize";
 import { runtimeConfig } from "../lib/runtimeConfig";
@@ -52,8 +53,7 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {cycles.map((c: CycleSummary) => {
-          const tx = c.tx_hash;
-          const verifyUrl = tx ? `${explorerBase}/tx/${tx}` : null;
+          const txUrl = explorerTxUrl(explorerBase, c.tx_hash);
           const replayUrl = `/app/replay?cycle=${encodeURIComponent(c.cycle_id)}`;
           return (
             <div key={c.cycle_id} className="border border-border p-2 text-[11px] font-mono bg-surface flex flex-col gap-1">
@@ -61,14 +61,20 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
                 <span className="truncate text-ink/80">{c.cycle_id.slice(0, 18)}…</span>
                 <span
                   className={`px-1 py-px text-[9px] border ${
-                    c.status === "failed"
+                    c.status === "failed" || c.has_policy_rejection
                       ? "bg-red-100 border-red-500 text-red-700"
-                      : c.status === "verified" || c.status === "executed"
-                        ? "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]"
-                        : "bg-amber-50 border-amber-400"
+                      : c.action_type === "treasury_ping"
+                        ? "bg-amber-50 border-amber-400 text-amber-800"
+                        : c.status === "verified" || c.status === "executed"
+                          ? "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]"
+                          : "bg-amber-50 border-amber-400"
                   }`}
                 >
-                  {c.status}
+                  {c.action_type === "policy_blocked"
+                    ? "blocked"
+                    : c.action_type === "treasury_ping"
+                      ? "degraded"
+                      : c.status}
                 </span>
               </div>
               <div className="text-muted truncate">
@@ -83,8 +89,8 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
                 )}
               </div>
               <div className="flex gap-2 mt-auto pt-1 text-[10px]">
-                {verifyUrl && (
-                  <a href={verifyUrl} target="_blank" rel="noreferrer" className="text-accent underline">MantleScan ↗</a>
+                {txUrl && (
+                  <a href={txUrl} target="_blank" rel="noreferrer" className="text-accent underline">MantleScan ↗</a>
                 )}
                 <a href={replayUrl} className="text-accent underline">Replay &amp; verify →</a>
               </div>
@@ -141,7 +147,7 @@ export function DashboardPage() {
   const explorerBase = runtimeConfig.explorerBase;
   const agentTokenId = runtimeConfig.agentTokenId;
   const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
-  const treasuryEoa = runtimeConfig.treasuryEoa;
+  const treasuryEoa = ameoConfig.signing_eoa || runtimeConfig.treasuryEoa;
   const identityExplorerUrl = agentIdentityAddress
     ? `${explorerBase}/address/${agentIdentityAddress}`
     : undefined;
@@ -231,87 +237,16 @@ export function DashboardPage() {
   );
 
   const activeCycleData = useMemo<CycleData | undefined>(() => {
-    if (latestCycleDetail) {
-      return mapCycleDetailToCycleData(latestCycleDetail, {
-        explorerBase,
-        treasuryEoa,
-        agentIdentityAddress,
-        ameoConfig,
-        activeLlmProvider: llmChain?.active_provider ?? null,
-      });
-    }
-
-    // Honest fallback when no cycles recorded yet (no static samples)
-    if (!status) return undefined;
-    const obs = status.observation;
-    const exec = status.last_execution;
-    const log = logs[0];
-
-    const observation = obs
-      ? {
-          balances: Object.entries(obs.balances ?? {}).reduce(
-            (acc, [k, v]) => ({ ...acc, [k]: Number(v ?? 0) }),
-            {} as Record<string, number>,
-          ),
-          gasPriceWei: Number(obs.gas_price_wei ?? 15000000000),
-          rpcUrl: runtimeConfig.mantleRpcUrl,
-          blockNumber: Number((obs as { block_number?: number }).block_number ?? 0),
-        }
-      : undefined;
-
-    const reasoning = log
-      ? {
-          llmProvider: runtimeConfig.llmProviderLabel,
-          model: runtimeConfig.llmModel,
-          rationaleHash: log.rationaleHash || "",
-          thoughtProcess: log.actionType
-            ? `Executing calculated path: ${log.actionType}.`
-            : "Live data pending...",
-          zeroGHash: "",
-        }
-      : undefined;
-
-    const policy = {
-      maxDrawdownLimit: ameoConfig.max_drawdown_pct
-        ? `${(ameoConfig.max_drawdown_pct * 100).toFixed(0)}% cap`
-        : `${(runtimeConfig.volatilityThresholdPct * 100).toFixed(0)}% cap (dynamic)`,
-      drawdownPassed: true,
-      whitelistPassed: true,
-      tradeSizeLimitUsd: ameoConfig.max_position_usd || runtimeConfig.maxTradeUsd,
-      planApproved: true,
-    };
-
-    const execution = {
-      sender: treasuryEoa || runtimeConfig.agentIdentityAddress,
-      targetContract: runtimeConfig.fusionxRouter,
-      actionDescription: log?.actionType
-        ? `${runtimeConfig.executionAdapterLabel}: ${log.actionType}`
-        : "Live execution pending...",
-      signingKeyType: runtimeConfig.signingMethod,
-      gasEstimateGwei: 28,
-    };
-
-    const settlement = exec?.tx_hash
-      ? {
-          txHash: exec.tx_hash,
-          blockNumber: 0,
-          verifiedOnChain: exec.ok ?? true,
-          explorerUrl: `${explorerBase}/tx/${exec.tx_hash}`,
-        }
-      : log?.txHash
-        ? {
-            txHash: log.txHash,
-            blockNumber: 0,
-            verifiedOnChain: true,
-            explorerUrl: `${explorerBase}/tx/${log.txHash}`,
-          }
-        : undefined;
-
-    return { observation, reasoning, policy, execution, settlement };
+    if (!latestCycleDetail) return undefined;
+    return mapCycleDetailToCycleData(latestCycleDetail, {
+      explorerBase,
+      treasuryEoa,
+      agentIdentityAddress,
+      ameoConfig,
+      activeLlmProvider: llmChain?.active_provider ?? null,
+    });
   }, [
     latestCycleDetail,
-    status,
-    logs,
     treasuryEoa,
     explorerBase,
     agentIdentityAddress,
@@ -341,6 +276,8 @@ export function DashboardPage() {
       </header>
 
       <div className="space-y-8">
+        <AgentSignerNotice />
+
         {showTreasuryBlock ? (
           <TreasuryPnL
             balances={balances}
@@ -376,14 +313,26 @@ export function DashboardPage() {
             onRunCycle={triggerCycle}
           />
 
+          {llmChain?.active_provider === "local_rules" && (
+            <div className="mt-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-900 font-mono">
+              LLM providers unavailable — cycles use <strong>local_rules</strong> fallback.
+              Fix <code>Z_AI_API_KEY</code> / model on Render before recording the demo.
+              Chain: {(llmChain.available_providers ?? []).join(" → ")}
+            </div>
+          )}
         </div>
 
-        {/* Production Scheduler Telemetry — fully dynamic, real 30min cycle engine */}
+        {/* Production Scheduler Telemetry — interval from worker /v1/scheduler/status */}
         <div className="soft-card p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className="font-display text-sm font-semibold text-ink">Production Scheduler</h3>
-              <p className="text-[10px] text-muted">30-minute autonomous ticks • idempotent • live in prod</p>
+              <p className="text-[10px] text-muted">
+                {schedulerStatus?.interval_minutes != null
+                  ? `${schedulerStatus.interval_minutes}-minute autonomous ticks`
+                  : "Autonomous ticks"}{" "}
+                · idempotent · live in prod
+              </p>
             </div>
             <span className={`px-2 py-0.5 text-[10px] font-mono border ${schedulerStatus?.enabled ? 'bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]' : 'bg-amber-50 border-amber-400 text-amber-700'}`}>
               {schedulerStatus?.enabled ? 'ACTIVE' : 'OFF'}
@@ -409,16 +358,21 @@ export function DashboardPage() {
                 {latestCycleDetail.summary.action_type === "treasury_ping" && (
                   <span className="ml-1 text-amber-600">(testnet fallback - no DEX liquidity)</span>
                 )}
+                {llmChain?.active_provider === "local_rules" && (
+                  <span className="ml-1 text-amber-600">(LLM unavailable — rules fallback)</span>
+                )}
               </span>
-              <a
-                href={`${explorerBase}/tx/${latestCycleDetail.summary.tx_hash}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent underline"
-              >
-                {latestCycleDetail.summary.tx_hash.slice(0, 10)}… ↗
-              </a>
-              <span className="text-muted">• real treasury snapshot + policy proof captured</span>
+              {explorerTxUrl(explorerBase, latestCycleDetail.tx_hash?.hash ?? latestCycleDetail.summary.tx_hash) ? (
+                <a
+                  href={explorerTxUrl(explorerBase, latestCycleDetail.tx_hash?.hash ?? latestCycleDetail.summary.tx_hash)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent underline"
+                >
+                  {shortHash(latestCycleDetail.tx_hash?.hash ?? latestCycleDetail.summary.tx_hash)} ↗
+                </a>
+              ) : null}
+              <span className="text-muted">• decision proof from /api/cycles (same hash as verify card)</span>
             </div>
           )}
         </div>

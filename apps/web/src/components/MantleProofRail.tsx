@@ -17,7 +17,7 @@ const chips = [
   {
     icon: "📜",
     title: "On-chain decision ledger",
-    sub: "ERC-8004-inspired custom contract · Mantle Sepolia",
+    sub: "AMEO decision ledger (custom contract) · Mantle Sepolia",
     href: agentIdentityAddress
       ? `${explorerBase}/address/${agentIdentityAddress}#code`
       : explorerBase,

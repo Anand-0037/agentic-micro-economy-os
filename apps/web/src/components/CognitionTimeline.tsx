@@ -2,12 +2,16 @@ import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { useAmeoConfig } from "../hooks/useAmeoConfig";
+import type { CycleDetail } from "../hooks/useCycles";
 import { apiGet } from "../lib/apiClient";
+import { mapCycleDetailToCycleData } from "../lib/cycleData";
 import {
   cognitionStepBadge,
   cognitionStepState,
   type CycleOutcome,
 } from "../lib/cycleOutcome";
+import { formatBlockNumber } from "../lib/dashboardFormat";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 export type CycleData = {
@@ -74,6 +78,7 @@ export function CognitionTimeline({
   pauseOnHover = false,
   hideHeader = false,
 }: CognitionTimelineProps) {
+  const { config: ameoConfig, guardrailsCount } = useAmeoConfig();
   const [liveData, setLiveData] = useState<CycleData | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const reduced = usePrefersReducedMotion();
@@ -91,64 +96,32 @@ export function CognitionTimeline({
 
     async function load() {
       try {
-        const [decJson, probe] = await Promise.all([
-          apiGet<{ items?: Array<{ cycleId?: string; txHash?: string | null }> }>(
-            workerUrl,
-            "/v1/decisions?limit=1",
-            8000,
-            runtimeConfig.workerApiKey,
-          ).catch(() => null),
-          apiGet<{ block_number?: number }>(workerUrl, "/api/mantle-probe", 8000, runtimeConfig.workerApiKey).catch(() => null),
-        ]);
+        const listJson = await apiGet<{ cycles?: Array<{ cycle_id?: string }> }>(
+          workerUrl,
+          "/api/cycles?limit=1",
+          10000,
+          runtimeConfig.workerApiKey,
+        ).catch(() => null);
         if (cancelled) return;
 
-        const chainBlock = Number(probe?.block_number ?? 0);
-        const item = decJson?.items?.[0];
-        if (!item) return;
+        const cycleId = listJson?.cycles?.[0]?.cycle_id;
+        if (!cycleId) return;
 
-        let detail: {
-          observation?: { block_number?: number; balances?: Record<string, number>; gas_price_wei?: number };
-          summary?: { tx_hash?: string; action_type?: string };
-          plan?: { rationale_summary?: string; planner_version?: string };
-          tx_hash?: { hash?: string; block_number?: number };
-        } | null = null;
+        const detail = await apiGet<CycleDetail>(
+          workerUrl,
+          `/api/cycles/${encodeURIComponent(cycleId)}`,
+          10000,
+          runtimeConfig.workerApiKey,
+        ).catch(() => null);
+        if (cancelled || !detail) return;
 
-        if (item.cycleId) {
-          detail = await apiGet<{
-            observation?: {
-              block_number?: number;
-              balances?: Record<string, number>;
-              gas_price_wei?: number;
-            };
-            summary?: { tx_hash?: string; action_type?: string };
-            plan?: { rationale_summary?: string; planner_version?: string };
-            tx_hash?: { hash?: string; block_number?: number };
-          }>(workerUrl, `/api/cycles/${encodeURIComponent(item.cycleId)}`).catch(() => null);
-        }
-
-        if (cancelled) return;
-
-        const txHash = item.txHash || detail?.summary?.tx_hash || detail?.tx_hash?.hash || "";
-        const blockNumber = Number(
-          detail?.observation?.block_number ??
-            detail?.tx_hash?.block_number ??
-            chainBlock,
+        setLiveData(
+          mapCycleDetailToCycleData(detail, {
+            explorerBase: runtimeConfig.explorerBase,
+            treasuryEoa: runtimeConfig.treasuryEoa,
+            agentIdentityAddress: runtimeConfig.agentIdentityAddress,
+          }),
         );
-
-        setLiveData({
-          observation: {
-            balances: detail?.observation?.balances ?? {},
-            gasPriceWei: Number(detail?.observation?.gas_price_wei ?? 0),
-            rpcUrl: runtimeConfig.mantleRpcUrl,
-            blockNumber,
-          },
-          settlement: {
-            txHash,
-            blockNumber,
-            verifiedOnChain: Boolean(txHash),
-            explorerUrl: txHash ? `${runtimeConfig.explorerBase}/tx/${txHash}` : "",
-          },
-        });
       } catch {
         /* keep skeleton */
       } finally {
@@ -248,7 +221,7 @@ export function CognitionTimeline({
           </div>
           <div className="flex justify-between border-b border-ink/10 pb-1">
             <span>Block Number:</span>
-            <span>#{data.observation.blockNumber}</span>
+            <span>{formatBlockNumber(data.observation.blockNumber)}</span>
           </div>
           <div className="flex justify-between border-b border-ink/10 pb-1">
             <span>USDC Balance:</span>
@@ -293,7 +266,7 @@ export function CognitionTimeline({
     },
     {
       title: "Hardened Policy Engine Verification",
-      description: "Evaluating the compiled action plan against hardcoded risk policies.",
+      description: `Evaluating the plan against ${guardrailsCount} live guardrails from /v1/policies.`,
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
@@ -321,17 +294,13 @@ export function CognitionTimeline({
             Evaluated · {data.policy?.drawdownPassed && data.policy?.whitelistPassed ? 'all predicates passed' : 'some predicates failed — plan adjusted'}
           </div>
 
-          {/* Full 7 guardrails disclosure (3 prominent + 4 silent enforcement) to match "7 guardrails" claims */}
+          {/* Full guardrail list from worker config */}
           <details className="mt-2 text-[10px] text-muted">
-            <summary className="cursor-pointer hover:text-ink">+ Show all 7 guardrails</summary>
+            <summary className="cursor-pointer hover:text-ink">+ Show all {guardrailsCount} guardrails</summary>
             <ul className="mt-1 pl-4 list-disc">
-              <li>✓ MaxDrawdownCheck</li>
-              <li>✓ AssetWhitelistCheck</li>
-              <li>✓ TradeSizeCheck</li>
-              <li>○ GasBudgetCheck (enforced silently)</li>
-              <li>○ MinimumBalanceCheck (enforced silently)</li>
-              <li>○ SlippageToleranceCheck (enforced silently)</li>
-              <li>○ ExecutionFrequencyCheck (enforced silently)</li>
+              {ameoConfig.guardrails.map((name) => (
+                <li key={name}>✓ {name}</li>
+              ))}
             </ul>
           </details>
 
@@ -398,14 +367,18 @@ export function CognitionTimeline({
     {
       title: outcome?.policyBlocked
         ? "On-chain proof · policy_blocked"
-        : data.settlement
-          ? "Settled on Mantle Sepolia (MNT gas)"
-          : "Settlement · none for this cycle",
+        : isTreasuryPing
+          ? "Decision logged on Mantle (degraded path)"
+          : data.settlement?.verifiedOnChain
+            ? "Settled on Mantle Sepolia (MNT gas)"
+            : "Settlement · none for this cycle",
       description: outcome?.policyBlocked
-        ? "DecisionLogged records the refusal — verifiable on the agent identity contract."
-        : data.settlement
-          ? "State change recorded on Mantle Network."
-          : "No Mantle settlement tx for the failed execution leg.",
+        ? "DecisionLogged records the refusal — verifiable on the agent decision ledger."
+        : isTreasuryPing
+          ? "treasury_ping degraded execution; DecisionLogged still anchors the cycle on-chain."
+          : data.settlement?.verifiedOnChain
+            ? "State change recorded on Mantle Network."
+            : "No Mantle settlement tx for the failed execution leg.",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
@@ -415,7 +388,7 @@ export function CognitionTimeline({
         <div className="mt-3 space-y-2 font-mono text-xs text-ink/80">
           <div className="flex justify-between border-b border-ink/10 pb-1">
             <span>Settled Block:</span>
-            <span>#{data.settlement.blockNumber}</span>
+            <span>{formatBlockNumber(data.settlement.blockNumber)}</span>
           </div>
           <div className="border-b border-ink/10 pb-2">
             <span className="block font-semibold">Transaction Hash:</span>
@@ -429,7 +402,12 @@ export function CognitionTimeline({
             </a>
           </div>
           <div className="mt-2 text-[10px] text-muted font-mono">
-            Settled · block #{data.settlement.blockNumber || '—'}
+            {outcome?.policyBlocked
+              ? "Block logged · "
+              : isTreasuryPing
+                ? "Decision logged (degraded) · "
+                : "Settled · "}
+            {formatBlockNumber(data.settlement.blockNumber)}
           </div>
         </div>
       ) : null,
@@ -504,14 +482,12 @@ export function CognitionTimeline({
                       : Boolean(data.settlement);
             const visualState = outcome
               ? cognitionStepState(idx, outcome, hasStepData)
-              : activeStep > idx
-                ? "complete"
-                : "neutral";
+              : "neutral";
             const isCompleted = visualState === "complete" || visualState === "degraded";
             const isFailed = visualState === "failed";
             const isActive = activeStep === idx;
             const isFuture = activeStep < idx;
-            const stepBadge = cognitionStepBadge(idx, visualState);
+            const stepBadge = cognitionStepBadge(idx, visualState, outcome);
 
             return (
               <m.div
@@ -587,7 +563,7 @@ export function CognitionTimeline({
                       >
                         {stepBadge}
                       </span>
-                    ) : isActive && !reduced ? (
+                    ) : isActive && !reduced && visualState === "neutral" ? (
                       <span className="shrink-0 animate-pulse border border-accent bg-accent px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase text-surface">
                         ● THINKING…
                       </span>
