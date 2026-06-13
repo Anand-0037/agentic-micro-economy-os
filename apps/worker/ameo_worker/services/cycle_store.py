@@ -78,6 +78,15 @@ def _last_event(
     return matched[-1] if matched else None
 
 
+def _is_zero_g_receipt(data_hash: Optional[str]) -> bool:
+    if not data_hash:
+        return False
+    text = str(data_hash).strip()
+    if text.startswith("ameo://"):
+        return False
+    return text.startswith("0x") and len(text) >= 66
+
+
 def _normalize_tx_hash(value: Optional[str]) -> str:
     if not value:
         return ""
@@ -237,7 +246,7 @@ def _build_summary(
     has_zero_g = False
     if decision:
         pnl_1e18 = decision.get("pnl1e18")
-        has_zero_g = bool(decision.get("dataHash"))
+        has_zero_g = _is_zero_g_receipt(decision.get("dataHash"))
 
     action_type = "unknown"
     if plan:
@@ -360,7 +369,7 @@ def _build_detail(
             "identity_address": settings.agent_identity_address,
         }
         data_hash = matched.get("dataHash") or ""
-        if data_hash:
+        if _is_zero_g_receipt(data_hash):
             indexer = settings.zero_g_indexer_url or ""
             zero_g = {
                 "root_hash": data_hash,

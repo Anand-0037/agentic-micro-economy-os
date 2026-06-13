@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useCycle, useCyclesList } from "../hooks/useCycles";
-import { shortAddress, shortHash } from "../lib/dashboardFormat";
+import { shortAddress, shortHash, explorerTxUrl } from "../lib/dashboardFormat";
 import { runtimeConfig } from "../lib/runtimeConfig";
 import { Skeleton } from "./ui/Skeleton";
 import { useAgentProfile } from "../hooks/useAgentProfile";
@@ -18,7 +18,9 @@ type VerifyIn60sCardProps = {
 
 function normalizeTxHash(hash?: string | null): string | null {
   if (!hash) return null;
-  return hash.startsWith("0x") ? hash : `0x${hash}`;
+  const trimmed = String(hash).trim().toLowerCase();
+  if (!trimmed) return null;
+  return trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
 }
 
 function buildVerificationBundle(detail: NonNullable<ReturnType<typeof useCycle>["data"]>) {
@@ -61,7 +63,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
     : null;
 
   const txHash = normalizeTxHash(detail?.tx_hash?.hash ?? verifyCycle?.tx_hash);
-  const txUrl = txHash ? `${explorerBase}/tx/${txHash}` : null;
+  const txUrl = explorerTxUrl(explorerBase, txHash);
   const apiVerifyUrl = txHash ? `${workerBase}/v1/verify/${txHash}` : null;
   const replayUrl = verifyCycle?.cycle_id
     ? `/app/replay?cycle=${encodeURIComponent(verifyCycle.cycle_id)}`
@@ -201,7 +203,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
                 className="mt-1 inline-flex text-xs font-semibold text-accent underline-offset-4 hover:underline"
                 to={replayUrl}
               >
-                9 nodes, real on-chain →
+                5-step cognition replay, real on-chain →
               </Link>
             ) : (
               <p className="mt-1 text-xs text-muted">Run a cognition cycle to enable replay.</p>

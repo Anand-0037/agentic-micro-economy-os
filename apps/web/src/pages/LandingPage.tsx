@@ -5,7 +5,6 @@ import { LocalErrorBoundary } from "../components/LocalErrorBoundary";
 import { LiveProtocolStats } from "../components/LiveProtocolStats";
 import { MantleProofRail } from "../components/MantleProofRail";
 import { VerifyIn60sCard } from "../components/VerifyIn60sCard";
-import { Track6Badge } from "../components/Track6Badge";
 import { Badge, BadgeVariant } from "../components/ui/Badge";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
@@ -78,7 +77,9 @@ export function LandingPage() {
           <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-12">
             <div>
           <div className="mb-4 flex flex-wrap gap-2">
-                <Track6Badge compact />
+                <Badge variant={BadgeVariant.Mantle} compact>
+                  Track 01 · AI Trading &amp; Strategy · Turing Test 2026
+                </Badge>
                 <Badge variant={BadgeVariant.Chain}>Mantle Sepolia</Badge>
                 <Badge variant={BadgeVariant.Policy}>Policy Guardrails</Badge>
                 <Badge variant={BadgeVariant.Verified}>Verifiable Decisions</Badge>

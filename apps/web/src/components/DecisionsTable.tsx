@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { VerifiableLog } from "../hooks/useAmeo";
-import { decisionStatus, shortHash } from "../lib/dashboardFormat";
+import { useCyclesList } from "../hooks/useCycles";
+import {
+  cycleIdFromMetadataUri,
+  decisionStatus,
+  formatDecisionActionLabel,
+  shortHash,
+} from "../lib/dashboardFormat";
 import { Skeleton } from "./ui/Skeleton";
 import { useAgentProfile } from "../hooks/useAgentProfile";
 
@@ -57,6 +63,17 @@ export function DecisionsTable({
 }: DecisionsTableProps) {
   const [page, setPage] = useState(0);
   const { data: profile } = useAgentProfile();
+  const { data: cyclesData } = useCyclesList(100, 0);
+
+  const cycleActionById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cycle of cyclesData?.cycles ?? []) {
+      if (cycle.cycle_id && cycle.action_type) {
+        map.set(cycle.cycle_id, cycle.action_type);
+      }
+    }
+    return map;
+  }, [cyclesData?.cycles]);
 
   const formattedTotalPnL = profile?.totalPnL ? (Number(profile.totalPnL) / 1e18).toFixed(4) : null;
 
@@ -189,7 +206,10 @@ export function DecisionsTable({
               </thead>
               <tbody>
                 {visibleLogs.map((log) => {
-                  const status = decisionStatus(log.actionType);
+                  const cycleId = cycleIdFromMetadataUri(log.metadataUri);
+                  const cycleAction = cycleId ? cycleActionById.get(cycleId) : undefined;
+                  const actionLabel = formatDecisionActionLabel(log.actionType, cycleAction);
+                  const status = decisionStatus(actionLabel);
                   const pnl =
                     log.pnl1e18 != null
                       ? (Number(log.pnl1e18) / 1e18).toFixed(4)
@@ -201,7 +221,10 @@ export function DecisionsTable({
                     >
                       <td className="py-3 pr-4 tabular-nums text-muted">On-chain</td>
                       <td className="py-3 pr-4 font-medium">
-                        {log.actionType}
+                        {actionLabel}
+                        {cycleAction === "treasury_ping" && log.actionType === "swap" ? (
+                          <span className="ml-1 text-[9px] font-mono text-muted">(on-chain label: swap)</span>
+                        ) : null}
                         {(log as any).plan?.rationale_summary?.toLowerCase?.().includes("volatility") && (
                           <span className="ml-1 inline-block rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">⚡ VOL</span>
                         )}

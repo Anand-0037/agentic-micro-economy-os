@@ -162,11 +162,13 @@ export function AgentControlStrip({
             AMEO #{agentTokenId}
             {treasuryEoa ? (
               <>
-                {" · "}
+                {" · agent signer "}
                 <span className="font-mono">{shortAddress(treasuryEoa)}</span>
               </>
             ) : null}{" "}
             · {chainLabel}
+            <br />
+            <span className="text-[0.6rem]">Cycles sign server-side — not your connected wallet</span>
           </p>
         </div>
       </div>

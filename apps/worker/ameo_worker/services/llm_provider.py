@@ -49,8 +49,8 @@ def get_circuit_breaker_status() -> Dict[str, Any]:
 
 
 _CHAIN_STATUS: Dict[str, Any] = {
-    "active_provider": "groq",
-    "available_providers": ["groq", "z_ai", "gemini", "local_rules"],
+    "active_provider": "z_ai",
+    "available_providers": ["z_ai", "groq", "gemini", "local_rules"],
     "last_failover_at": None,
     "total_failovers_24h": 0,
     "_failover_timestamps": [],

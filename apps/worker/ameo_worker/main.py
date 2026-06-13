@@ -133,11 +133,18 @@ def _check_identity_nft() -> None:
 async def on_startup() -> None:
     _check_zero_g_binary()
     _check_identity_nft()
+    settings = get_settings()
+    interval_min = max(1, settings.agent_interval_sec // 60)
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_scheduler_tick, "interval", minutes=30, id="ameo_cycle_tick")  # Block B: 30-min production tick for reliable DecisionLogged history
+    scheduler.add_job(
+        _scheduler_tick,
+        "interval",
+        minutes=interval_min,
+        id="ameo_cycle_tick",
+    )
     scheduler.start()
     app.state.scheduler = scheduler
-    logger.info("Scheduler started - next tick in 30 minutes")
+    logger.info("Scheduler started - interval %s minutes", interval_min)
 
 
 @app.on_event("shutdown")
@@ -199,6 +206,8 @@ async def health() -> dict[str, Any]:
 @app.get("/v1/scheduler/status")
 async def scheduler_status() -> dict[str, Any]:
     """Block B / B completeness: Reports on the production cycle scheduler for the Narrative Console idle message."""
+    settings = get_settings()
+    interval_min = max(1, settings.agent_interval_sec // 60)
     scheduler = app.state.scheduler
     next_run = None
     if scheduler:
@@ -208,7 +217,8 @@ async def scheduler_status() -> dict[str, Any]:
 
     return {
         "enabled": scheduler is not None,
-        "interval_minutes": 30,
+        "interval_minutes": interval_min,
+        "interval_seconds": settings.agent_interval_sec,
         "last_cycle_id": app.state.last_cycle_id,
         "next_scheduled_tick": next_run,
         "uptime_seconds": int(time.monotonic() - app.state.app_start_monotonic),

@@ -13,6 +13,7 @@ export type AmeoConfig = {
   llm_provider_chain: string[];
   execution_adapter: string;
   asset_whitelist: string[];
+  signing_eoa?: string;
   max_drawdown_pct?: number;
   allowed_protocols?: string[];
 };
@@ -51,6 +52,7 @@ export function useAmeoConfig() {
     llm_provider_chain: ["z_ai", "groq", "gemini", "local_rules"],
     execution_adapter: runtimeConfig.executionAdapter,
     asset_whitelist: ["USDC", "MNT"],
+    signing_eoa: runtimeConfig.treasuryEoa || runtimeConfig.agentEoa,
     max_drawdown_pct: 0.12,
     allowed_protocols: ["fusionx_v2"],
   };

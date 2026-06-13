@@ -1,5 +1,6 @@
 import type { CycleData } from "../components/CognitionTimeline";
 import type { CycleDetail } from "../hooks/useCycles";
+import { normalizeTxHash, explorerTxUrl } from "./dashboardFormat";
 import { cognitionStepState, deriveCycleOutcome, resolvePlannerLabel } from "./cycleOutcome";
 import { executionTargetLabel, runtimeConfig } from "./runtimeConfig";
 
@@ -24,7 +25,7 @@ export function mapCycleDetailToCycleData(
   const outcome = deriveCycleOutcome(detail);
   const anyReject = policy_checks.some((check) => !check.passed);
   const executionOk = execution?.ok === true;
-  const tx = tx_hash?.hash ?? summary.tx_hash;
+  const tx = normalizeTxHash(tx_hash?.hash ?? summary.tx_hash);
 
   const mappedObservation =
     observation && typeof observation === "object"
@@ -92,12 +93,12 @@ export function mapCycleDetailToCycleData(
   );
 
   const settlement =
-    tx && (executionOk || outcome.policyBlocked)
+    tx && (outcome.policyBlocked || (executionOk && !outcome.isTreasuryPing) || (outcome.isTreasuryPing && outcome.hasDecisionLog))
       ? {
           txHash: tx,
           blockNumber: settlementBlock,
-          verifiedOnChain: executionOk && Boolean(tx),
-          explorerUrl: `${options.explorerBase}/tx/${tx}`,
+          verifiedOnChain: executionOk && !outcome.isTreasuryPing && Boolean(tx),
+          explorerUrl: explorerTxUrl(options.explorerBase, tx) ?? "",
         }
       : undefined;
 

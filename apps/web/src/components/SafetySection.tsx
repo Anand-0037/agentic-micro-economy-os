@@ -52,7 +52,8 @@ export function SafetySection({
 
       <div className="border-t border-border px-4 pb-5 pt-2 sm:px-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Policy Guardrails (Enforced Outside LLM) — {guardrailsCount} total (3 shown; rest enforced silently)
+          Policy guardrails (enforced outside the LLM) — {guardrailsCount} total · 3 highlighted below · all{" "}
+          {guardrailsCount} checked every cycle
         </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {guardrails.map((rail) => (

@@ -28,7 +28,7 @@ export function WalletConnectButton() {
         className="btn-secondary h-10 px-3 text-xs font-semibold font-mono"
         type="button"
         onClick={() => disconnect()}
-        title={`Connected as ${address}. Click to disconnect.`}
+        title={`Viewer wallet: ${address}. Cycles sign with the server agent EOA — not this wallet. Click to disconnect.`}
       >
         {display}
       </button>
@@ -53,9 +53,13 @@ export function WalletConnectButton() {
       disabled={isPending}
       type="button"
       onClick={() => connect({ connector: primary })}
-      title={error ? error.message : undefined}
+      title={
+        error
+          ? error.message
+          : "Optional viewer wallet — AMEO cycles sign with the server agent EOA, not your browser wallet."
+      }
     >
-      {isPending ? "…" : "Connect"}
+      {isPending ? "…" : "Connect (viewer)"}
     </button>
   );
 }
