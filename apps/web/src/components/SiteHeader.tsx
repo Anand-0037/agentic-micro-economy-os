@@ -116,7 +116,7 @@ export function SiteHeader({ basePath = "/app" }: SiteHeaderProps) {
                   className="hidden sm:inline-flex items-center gap-1 rounded bg-[#e2f0d9] px-2 py-0.5 text-[10px] font-bold text-[#3d7a5f] border border-[#3d7a5f]/20 hover:bg-[#d6ebd0] transition-colors"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-[#3d7a5f]"></span>
-                  Identity Verified
+                  Identity · decision ledger
                 </a>
               )}
             </div>

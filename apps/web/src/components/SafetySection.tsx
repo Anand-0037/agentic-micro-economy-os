@@ -11,24 +11,31 @@ type TickerItem = {
 
 type SafetySectionProps = {
   guardrails: { title: string; value: string; caption: string }[];
+  guardrailsCount?: number;
   tickers: TickerItem[];
   loading?: boolean;
   policyRows?: PolicyDisplayRow[];
   policyLoading?: boolean;
   policyError?: string | null;
   slippageBps?: number;
+  maxDrawdownPct?: number;
 };
 
 export function SafetySection({
   guardrails,
+  guardrailsCount = 7,
   tickers,
   loading,
   policyRows = [],
   policyLoading,
   policyError,
   slippageBps,
+  maxDrawdownPct,
 }: SafetySectionProps) {
   const slippagePct = ((slippageBps ?? 100) / 100).toFixed(1);
+  const drawdownCap =
+    guardrails[0]?.value ||
+    (maxDrawdownPct ? `${(maxDrawdownPct * 100).toFixed(0)}% cap` : "12% cap");
   return (
     <details className="soft-card group">
       <summary className="cursor-pointer list-none px-4 py-4 text-sm font-semibold text-ink marker:content-none sm:px-5">
@@ -39,13 +46,13 @@ export function SafetySection({
           </span>
         </span>
         <p className="mt-1 text-xs font-normal text-muted">
-          {guardrails.length} active guardrails enforced before every execution · Live market signals
+          {guardrailsCount} active guardrails enforced before every execution · Live market signals
         </p>
       </summary>
 
       <div className="border-t border-border px-4 pb-5 pt-2 sm:px-5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Policy Guardrails (Enforced Outside LLM) — 7 total (3 shown; 4 active)
+          Policy Guardrails (Enforced Outside LLM) — {guardrailsCount} total (3 shown; rest enforced silently)
         </h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {guardrails.map((rail) => (
@@ -59,10 +66,10 @@ export function SafetySection({
 
         <details className="mt-2">
           <summary className="text-xs text-muted cursor-pointer font-medium hover:text-ink">
-            + Show all 7 guardrails (active; not surfaced in the cycle card)
+            + Show all {guardrailsCount} guardrails
           </summary>
           <ul className="mt-1 text-[10px] text-muted pl-4 list-disc space-y-0.5">
-            <li>✓ MaxDrawdownCheck (drawdown cap: {guardrails[0]?.value || "12% cap"})</li>
+            <li>✓ MaxDrawdownCheck (drawdown cap: {drawdownCap})</li>
             <li>✓ AssetWhitelistCheck (allowed: {guardrails[1]?.value || "USDC, MNT"})</li>
             <li>✓ TradeSizeCheck (limit: {guardrails[2]?.value || "$250 max trade"})</li>
             <li>✓ GasBudgetCheck (gas budget cap: 0.05 MNT/cycle)</li>

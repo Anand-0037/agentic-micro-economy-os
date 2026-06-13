@@ -16,7 +16,8 @@ class EventType(str, Enum):
     CYCLE_COMPLETED = "cycle_completed"
     LLM_PROVIDER_FAILED = "llm_provider_failed"
     LLM_PROVIDER_SUCCEEDED = "llm_provider_succeeded"
-    BYREAL_SKILL_INVOKED = "byreal_quote_fetched"  # telemetry only — settlement is in mantle_dex.py
+    FUSIONX_QUOTE_FETCHED = "fusionx_quote_fetched"  # telemetry only — settlement is in mantle_dex.py
+    ONCHAIN_DECISION_LOGGED = "onchain_decision_logged"
     ZERO_G_ANCHOR_SUCCEEDED = "zero_g_anchor_succeeded"
     ZERO_G_ANCHOR_FAILED = "zero_g_anchor_failed"
 

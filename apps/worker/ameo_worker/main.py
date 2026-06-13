@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 import sentry_sdk
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -359,12 +359,12 @@ async def stop_runner() -> dict:
 
 
 @app.post("/run-cycle")
-async def run_cycle_endpoint() -> dict:
+async def run_cycle_endpoint(demo: Optional[str] = Query(default=None)) -> dict:
     if getattr(app.state, "_cycle_running", False):
         raise HTTPException(status_code=409, detail="cycle_already_running")
     app.state._cycle_running = True
     try:
-        result = await run_cycle()
+        result = await run_cycle(demo_mode=demo)
         cycle_id = result.get("cycle_id") or result.get("cycleId")
         app.state.last_cycle_id = cycle_id
         return result

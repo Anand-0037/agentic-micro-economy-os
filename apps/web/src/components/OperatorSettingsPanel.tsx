@@ -246,8 +246,7 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
           Live stack
         </h3>
         <p className="mt-3 text-sm text-muted">
-          Data is fetched live from the worker API, Mantle RPC, and 0G storage. No cached or
-          mock data.
+          Data is fetched live from the worker API and Mantle RPC. No cached or mock data.
         </p>
         <ul className="mt-4 space-y-2 text-sm">
           <li className="flex items-center gap-2">
@@ -261,13 +260,6 @@ export function OperatorSettingsPanel({ active = true }: OperatorSettingsPanelPr
             <span>
               Mantle RPC —{" "}
               <span className="font-medium text-ink">{stackLabel(health.mantleRpc)}</span>
-            </span>
-          </li>
-          <li className="flex items-center gap-2">
-            <StatusDot ok={health.zeroG} />
-            <span>
-              0G storage —{" "}
-              <span className="font-medium text-ink">{stackLabel(health.zeroG)}</span>
             </span>
           </li>
         </ul>

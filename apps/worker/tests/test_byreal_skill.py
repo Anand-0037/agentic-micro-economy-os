@@ -43,7 +43,7 @@ def test_invoke_skill_success(caplog: pytest.LogCaptureFixture) -> None:
     assert result.stdout["quoteId"] == "q1"
     assert result.dry_run is True
     assert result.latency_ms >= 0
-    assert any("byreal_quote_fetched skill=mantle.swap.v1" in rec.message for rec in caplog.records)
+    assert any("fusionx_quote_fetched skill=mantle.swap.v1" in rec.message for rec in caplog.records)
 
 
 def test_invoke_skill_http_error() -> None:

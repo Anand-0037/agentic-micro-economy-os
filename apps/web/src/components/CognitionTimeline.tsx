@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 import { apiGet } from "../lib/apiClient";
+import {
+  cognitionStepBadge,
+  cognitionStepState,
+  type CycleOutcome,
+} from "../lib/cycleOutcome";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
 export type CycleData = {
@@ -32,6 +37,7 @@ export type CycleData = {
     actionDescription: string;
     signingKeyType: string;
     gasEstimateGwei: number;
+    ok?: boolean;
   };
   settlement?: {
     txHash: string;
@@ -43,6 +49,8 @@ export type CycleData = {
     rationale_summary?: string;
     rationale?: string;
   };
+  outcome?: CycleOutcome;
+  maxCompletedStep?: number;
 };
 
 function isVolatilityResponse(data: CycleData): boolean {
@@ -166,8 +174,9 @@ export function CognitionTimeline({
     if (!data) {
       return undefined;
     }
+    const terminalStep = Math.min(data.maxCompletedStep ?? 4, 4);
     if (reduced) {
-      setActiveStep(4);
+      setActiveStep(terminalStep);
       return undefined;
     }
 
@@ -176,18 +185,14 @@ export function CognitionTimeline({
       return undefined;
     }
     const stepMs = autoLoop ? 1400 : 1800;
-    const intervals = [
-      setTimeout(() => setActiveStep(1), stepMs),
-      setTimeout(() => setActiveStep(2), stepMs * 2),
-      setTimeout(() => setActiveStep(3), stepMs * 3),
-      setTimeout(() => setActiveStep(4), stepMs * 4),
-      setTimeout(() => setActiveStep(5), stepMs * 5),
-    ];
-    if (autoLoop) {
+    const intervals = Array.from({ length: terminalStep }, (_, index) =>
+      setTimeout(() => setActiveStep(index + 1), stepMs * (index + 1)),
+    );
+    if (autoLoop && terminalStep > 0) {
       intervals.push(
         setTimeout(() => {
           setReplayKey((prev) => prev + 1);
-        }, stepMs * 5 + 800),
+        }, stepMs * terminalStep + 800),
       );
     }
     return () => {
@@ -220,6 +225,8 @@ export function CognitionTimeline({
 
   const isTreasuryPing =
     data.execution?.actionDescription?.toLowerCase().includes("treasury_ping") ?? false;
+  const outcome = data.outcome;
+  const executionFailed = outcome ? !outcome.executionOk && !outcome.policyBlocked : false;
 
   const steps = [
     {
@@ -260,7 +267,7 @@ export function CognitionTimeline({
         : "Reasoning & Plan Compilation",
       description: volatilityResponse
         ? "Market signal triggered rebalance in fallback mode."
-        : "Model generates trade plan anchored with a permanent 0G Storage receipt.",
+        : "Model generates a trade plan; rationale is hashed for on-chain DecisionLogged.",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 21l3.625-1.43c.094-.037.193-.056.294-.056h.163c.101 0 .2.019.294.056L17 21l-.813-5.096a3.5 3.5 0 0 0-2.458-2.835L12 12l-1.73 1.07a3.5 3.5 0 0 0-2.457 2.834Z" />
@@ -280,12 +287,7 @@ export function CognitionTimeline({
           <div className="bg-sand border-2 border-ink p-3 text-xs leading-relaxed font-sans italic text-ink/90">
             "{data.reasoning.thoughtProcess}"
           </div>
-          <div className="mt-2 bg-accent/5 border border-accent/20 p-2 text-[10px] flex items-center justify-between gap-2">
-            <span className="font-sans font-semibold text-accent">0G STORAGE PROOF:</span>
-            <span className="truncate max-w-[180px] break-all font-mono" title={data.reasoning.zeroGHash}>
-              {data.reasoning.zeroGHash}
-            </span>
-          </div>
+
         </div>
       ) : null,
     },
@@ -343,12 +345,20 @@ export function CognitionTimeline({
       ) : null,
     },
     {
-      title: isTreasuryPing
-        ? "Execution · treasury_ping (degraded path)"
-        : "Execution · FusionX V2 DEX",
-      description: isTreasuryPing
-        ? "Swap path unavailable on Sepolia — policy-approved plan degraded to treasury_ping (self-transfer). Still logged on-chain."
-        : "Policy-approved plan executed via direct web3 call to FusionX V2 DEX on Mantle Sepolia (hot EOA signer).",
+      title: outcome?.policyBlocked
+        ? "Execution · skipped (policy blocked)"
+        : isTreasuryPing
+          ? "Execution · treasury_ping (degraded path)"
+          : executionFailed
+            ? "Execution · failed (no settlement)"
+            : "Execution · FusionX V2 DEX",
+      description: outcome?.policyBlocked
+        ? "Guardrails refused the plan before any swap was attempted."
+        : isTreasuryPing
+          ? "Swap path unavailable on Sepolia — degraded to treasury_ping. Decision may still log on-chain."
+          : executionFailed
+            ? "Router or wrap step reverted on testnet (thin liquidity). No settlement tx for this leg."
+            : "Policy-approved plan executed via FusionX V2 on Mantle Sepolia (hot EOA signer).",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
@@ -386,8 +396,16 @@ export function CognitionTimeline({
       ) : null,
     },
     {
-      title: "Settled on Mantle Sepolia (MNT gas)",
-      description: "State change successfully recorded and settled on Mantle Network.",
+      title: outcome?.policyBlocked
+        ? "On-chain proof · policy_blocked"
+        : data.settlement
+          ? "Settled on Mantle Sepolia (MNT gas)"
+          : "Settlement · none for this cycle",
+      description: outcome?.policyBlocked
+        ? "DecisionLogged records the refusal — verifiable on the agent identity contract."
+        : data.settlement
+          ? "State change recorded on Mantle Network."
+          : "No Mantle settlement tx for the failed execution leg.",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
@@ -474,9 +492,26 @@ export function CognitionTimeline({
 
         <AnimatePresence>
           {steps.map((step, idx) => {
-            const isCompleted = activeStep > idx;
+            const hasStepData =
+              idx === 0
+                ? Boolean(data.observation)
+                : idx === 1
+                  ? Boolean(data.reasoning)
+                  : idx === 2
+                    ? Boolean(data.policy)
+                    : idx === 3
+                      ? Boolean(data.execution)
+                      : Boolean(data.settlement);
+            const visualState = outcome
+              ? cognitionStepState(idx, outcome, hasStepData)
+              : activeStep > idx
+                ? "complete"
+                : "neutral";
+            const isCompleted = visualState === "complete" || visualState === "degraded";
+            const isFailed = visualState === "failed";
             const isActive = activeStep === idx;
             const isFuture = activeStep < idx;
+            const stepBadge = cognitionStepBadge(idx, visualState);
 
             return (
               <m.div
@@ -489,11 +524,15 @@ export function CognitionTimeline({
                 {/* Node icon circle */}
                 <m.div
                   className={`absolute -left-[30px] top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink transition-all sm:-left-[32px] ${
-                    isCompleted
-                      ? "bg-accent text-surface"
-                      : isActive
-                        ? "bg-sand text-ink shadow-[0_0_12px_rgba(200,107,74,0.4)]"
-                        : "bg-[#faf7f2] text-ink/30"
+                    isFailed
+                      ? "bg-red-100 text-red-700"
+                      : isCompleted
+                        ? visualState === "degraded"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-accent text-surface"
+                        : isActive
+                          ? "bg-sand text-ink shadow-[0_0_12px_rgba(200,107,74,0.4)]"
+                          : "bg-[#faf7f2] text-ink/30"
                   }`}
                   animate={
                     reduced || !isActive
@@ -505,10 +544,15 @@ export function CognitionTimeline({
                   }
                   transition={reduced ? { duration: 0 } : { repeat: Infinity, duration: 1.5 }}
                 >
-                  {isCompleted ? (
-                    // Shield lock icon for secure completed steps
+                  {isFailed ? (
+                    <span className="text-sm font-bold">!</span>
+                  ) : isCompleted ? (
                     <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.08 5.753 2 6.516 2 7.292c0 5.08 3.753 9.284 8.734 10.648A11.954 11.954 0 0017.834 7.292c0-.776-.08-1.54-.166-2.292A11.954 11.954 0 0110 1.944z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M10 1.944A11.954 11.954 0 012.166 5C2.08 5.753 2 6.516 2 7.292c0 5.08 3.753 9.284 8.734 10.648A11.954 11.954 0 0017.834 7.292c0-.776-.08-1.54-.166-2.292A11.954 11.954 0 0110 1.944z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   ) : (
                     step.icon
@@ -531,13 +575,17 @@ export function CognitionTimeline({
                     <h4 className="font-display font-bold text-sm sm:text-base text-ink">
                       {step.title}
                     </h4>
-                    {isCompleted ? (
-                      <span className="shrink-0 font-mono text-[9px] font-bold uppercase bg-sand text-ink px-1.5 py-0.5 border border-ink/30">
-                        {idx === 0 && 'Observed'}
-                        {idx === 1 && 'Generated'}
-                        {idx === 2 && 'Approved'}
-                        {idx === 3 && 'Settled'}
-                        {idx === 4 && 'Proven'}
+                    {stepBadge ? (
+                      <span
+                        className={`shrink-0 font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 border ${
+                          isFailed
+                            ? "bg-red-50 border-red-500 text-red-700"
+                            : visualState === "degraded"
+                              ? "bg-amber-50 border-amber-500 text-amber-800"
+                              : "bg-sand border-ink/30 text-ink"
+                        }`}
+                      >
+                        {stepBadge}
                       </span>
                     ) : isActive && !reduced ? (
                       <span className="shrink-0 animate-pulse border border-accent bg-accent px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase text-surface">

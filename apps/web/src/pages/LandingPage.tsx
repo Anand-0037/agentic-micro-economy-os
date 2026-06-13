@@ -18,7 +18,7 @@ const logoSrc = "/ameo-logo.png";
 const proofCards = [
   {
     title: "On-chain identity",
-    label: "ERC-8004-inspired · Mantle Sepolia",
+    label: "Decision ledger · Mantle Sepolia",
     href: `${runtimeConfig.explorerBase}/address/${runtimeConfig.agentIdentityAddress}#code`,
   },
   {
@@ -89,7 +89,6 @@ export function LandingPage() {
               <p className="mt-6 max-w-xl text-lg text-muted">
                 A policy-enforced AI trading agent on Mantle that proves — with on-chain
                 DecisionLogged events — when it refused a risky trade the LLM tried to make.
-                Optional 0G trace anchoring when configured.
               </p>
               <LiveProtocolStats />
               <div className="mt-8 flex flex-wrap gap-4">

@@ -36,6 +36,7 @@ class AgentState(TypedDict, total=False):
     log: Dict[str, Any]
     retry_count: int
     cycle_id: str
+    demo_mode: str
     byreal_skill_result: Dict[str, Any] | None
     zero_g: Dict[str, Any] | None
 
@@ -203,7 +204,9 @@ async def reason(state: AgentState) -> AgentState:
             "action_type": plan.action_type,
             "protocol": plan.protocol,
             "rationale": plan.rationale_summary,
+            "rationale_summary": plan.rationale_summary,
             "planner": plan.planner,
+            "size_usd": plan.size_usd,
         },
         correlation_id=plan.correlation_id,
     )
@@ -211,10 +214,31 @@ async def reason(state: AgentState) -> AgentState:
     return {"plan": plan, **state}
 
 
+def _apply_demo_injection(plan: ActionPlan, demo_mode: str | None) -> ActionPlan:
+    """Inject a rogue trade for policy-block demos (honest, env/query gated)."""
+    if demo_mode != "rogue_block":
+        return plan
+    plan.size_usd = 900.0
+    plan.action_params = {**plan.action_params, "amount": 900.0}
+    plan.action_type = "swap"
+    plan.protocol = plan.protocol or "fusionx_v2"
+    plan.asset_in = plan.asset_in or "USDC"
+    plan.asset_out = plan.asset_out or "MNT"
+    plan.rationale_summary = (
+        "Rogue trade proposal: swap $900 USDC→MNT (exceeds MAX_POSITION_USD cap)"
+    )
+    plan.rationale = (
+        f"{plan.rationale_summary}. Expected policy refusal before execution."
+    )
+    return plan
+
+
 def plan(state: AgentState) -> AgentState:
     action_plan = state.get("plan")
     if not action_plan:
         raise RuntimeError("missing_plan_after_reason")
+
+    action_plan = _apply_demo_injection(action_plan, state.get("demo_mode"))
 
     cycle_id = state.get("cycle_id", "unknown")
     byreal_skill_result: Dict[str, Any] | None = None
@@ -252,10 +276,10 @@ def plan(state: AgentState) -> AgentState:
 
         EventStore().emit(
             cycle_id=cycle_id,
-            event_type=EventType.BYREAL_SKILL_INVOKED,
+            event_type=EventType.FUSIONX_QUOTE_FETCHED,
             data={
                 "skill": "mantle.swap.v1",
-                "byreal_skill_result": byreal_skill_result,
+                "fusionx_quote_result": byreal_skill_result,
                 "params": params,
             },
             correlation_id=action_plan.correlation_id,
@@ -486,7 +510,7 @@ async def self_heal(state: AgentState) -> AgentState:
     return state
 
 
-def log(state: AgentState) -> AgentState:
+async def log(state: AgentState) -> AgentState:
     log_payload: Dict[str, Any] = {"status": "ok"}
     execution = state.get("execution")
     plan = state.get("plan")
@@ -506,31 +530,29 @@ def log(state: AgentState) -> AgentState:
             )
 
         log_payload["zero_g"] = {"status": "pending", "reason": "background_anchor"}
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(
-                finalize_cycle_async(
-                    cycle_id=cycle_id,
-                    plan=plan,
-                    observation=observation,
-                    execution=execution,
-                    violations=state.get("violations", []),
-                    byreal_skill_result=state.get("byreal_skill_result"),
-                    pnl_value=pnl_value,
-                )
-            )
-        except RuntimeError:
-            asyncio.run(
-                finalize_cycle_async(
-                    cycle_id=cycle_id,
-                    plan=plan,
-                    observation=observation,
-                    execution=execution,
-                    violations=state.get("violations", []),
-                    byreal_skill_result=state.get("byreal_skill_result"),
-                    pnl_value=pnl_value,
-                )
-            )
+        finalize_coro = finalize_cycle_async(
+            cycle_id=cycle_id,
+            plan=plan,
+            observation=observation,
+            execution=execution,
+            violations=state.get("violations", []),
+            byreal_skill_result=state.get("byreal_skill_result"),
+            pnl_value=pnl_value,
+        )
+        # Await on-chain proof for policy blocks so /api/cycles returns a matchable tx.
+        await_onchain = (
+            execution.command == "guardrail_blocked"
+            or not state.get("guardrail_ok", True)
+            or state.get("demo_mode") == "rogue_block"
+        )
+        if await_onchain:
+            await finalize_coro
+        else:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(finalize_coro)
+            except RuntimeError:
+                await finalize_coro
 
     update_status(state.get("observation"), state.get("execution"))
 

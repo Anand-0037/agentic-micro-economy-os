@@ -4,7 +4,6 @@ const explorerBase = runtimeConfig.explorerBase;
 const treasuryEoa = runtimeConfig.treasuryEoa;
 const agentIdentityAddress = runtimeConfig.agentIdentityAddress;
 const agentTokenId = runtimeConfig.agentTokenId;
-const zeroGIndexerBase = runtimeConfig.zeroGIndexerUrl;
 
 const FUSIONX_ROUTER = runtimeConfig.fusionxRouter;
 
@@ -16,9 +15,9 @@ const chips = [
     href: `${runtimeConfig.workerUrl.replace(/\/$/, "")}/v1/policies`,
   },
   {
-    icon: "✓",
-    title: "Verifiable decisions",
-    sub: "Every rationale + policy check on-chain",
+    icon: "📜",
+    title: "On-chain decision ledger",
+    sub: "ERC-8004-inspired custom contract · Mantle Sepolia",
     href: agentIdentityAddress
       ? `${explorerBase}/address/${agentIdentityAddress}#code`
       : explorerBase,
@@ -28,12 +27,6 @@ const chips = [
     title: "Mantle settlement",
     sub: "MNT-paid gas · FusionX V2 (treasury_ping when Sepolia liquidity is thin)",
     href: `${explorerBase}/address/${FUSIONX_ROUTER}`,
-  },
-  {
-    icon: "🧠",
-    title: "0G Storage proofs",
-    sub: "Permanent rationale anchoring + indexer",
-    href: zeroGIndexerBase,
   },
 ] as const;
 

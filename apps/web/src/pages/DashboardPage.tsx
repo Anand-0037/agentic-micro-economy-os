@@ -59,7 +59,15 @@ function RecentCyclesStrip({ explorerBase }: { explorerBase: string }) {
             <div key={c.cycle_id} className="border border-border p-2 text-[11px] font-mono bg-surface flex flex-col gap-1">
               <div className="flex justify-between items-start">
                 <span className="truncate text-ink/80">{c.cycle_id.slice(0, 18)}…</span>
-                <span className={`px-1 py-px text-[9px] border ${c.status === 'ok' || c.status === 'completed' ? 'bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]' : 'bg-amber-50 border-amber-400'}`}>
+                <span
+                  className={`px-1 py-px text-[9px] border ${
+                    c.status === "failed"
+                      ? "bg-red-100 border-red-500 text-red-700"
+                      : c.status === "verified" || c.status === "executed"
+                        ? "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]"
+                        : "bg-amber-50 border-amber-400"
+                  }`}
+                >
                   {c.status}
                 </span>
               </div>
@@ -110,6 +118,7 @@ export function DashboardPage() {
     logsError,
     logsLastSuccessAt,
     healthOk,
+    llmChain,
     triggerCycle,
     refreshLogs,
     refreshAll,
@@ -228,6 +237,7 @@ export function DashboardPage() {
         treasuryEoa,
         agentIdentityAddress,
         ameoConfig,
+        activeLlmProvider: llmChain?.active_provider ?? null,
       });
     }
 
@@ -257,7 +267,7 @@ export function DashboardPage() {
           thoughtProcess: log.actionType
             ? `Executing calculated path: ${log.actionType}.`
             : "Live data pending...",
-          zeroGHash: log.dataHash || "",
+          zeroGHash: "",
         }
       : undefined;
 
@@ -306,6 +316,7 @@ export function DashboardPage() {
     explorerBase,
     agentIdentityAddress,
     ameoConfig,
+    llmChain?.active_provider,
   ]);
 
   const lastLog = logs[0];
@@ -330,15 +341,6 @@ export function DashboardPage() {
       </header>
 
       <div className="space-y-8">
-        {latestCycleDetail && !latestCycleDetail.zero_g?.root_hash && (
-          <div className="border border-amber-400 bg-amber-50 p-3 text-xs text-amber-900 font-mono flex items-center gap-2 rounded">
-            <span className="text-sm">⚠️</span>
-            <div>
-              <span className="font-bold">0G Storage anchor pending:</span> Galileo testnet congestion or gas limits may delay storage root anchoring. Execution safety and trail remain fully verified on-chain.
-            </div>
-          </div>
-        )}
-
         {showTreasuryBlock ? (
           <TreasuryPnL
             balances={balances}
@@ -397,7 +399,7 @@ export function DashboardPage() {
           ) : (
             <div className="text-xs text-muted font-mono">Loading scheduler status from worker...</div>
           )}
-          <p className="mt-2 text-[10px] text-muted">Real cycles: observe → reason (Groq/z.ai/Gemini) → policy (7 predicates) → execute (FusionX V2 or treasury_ping) → prove (DecisionLogged on Mantle; 0G optional).</p>
+          <p className="mt-2 text-[10px] text-muted">Real cycles: observe → reason (z.ai/Groq/Gemini) → policy ({ameoConfig.guardrails.length} predicates) → execute (FusionX V2 or treasury_ping) → prove (DecisionLogged on Mantle).</p>
 
           {latestCycleDetail?.summary?.tx_hash && (
             <div className="mt-3 pt-2 border-t border-border text-[10px] font-mono text-ink/70 flex flex-wrap gap-x-3 gap-y-0.5">
@@ -452,18 +454,20 @@ export function DashboardPage() {
             </LocalErrorBoundary>
           </div>
           <LocalErrorBoundary title="Worker telemetry failed to render.">
-            <NarrativeConsole />
+            <NarrativeConsole summaryMode />
           </LocalErrorBoundary>
         </div>
 
         <SafetySection
           guardrails={guardrails}
+          guardrailsCount={ameoConfig.guardrails.length}
           tickers={tickerItems}
           loading={statusLoading}
           policyRows={policyRows}
           policyLoading={configLoading}
           policyError={null}
           slippageBps={ameoConfig?.dex_slippage_bps}
+          maxDrawdownPct={ameoConfig.max_drawdown_pct}
         />
       </div>
     </div>

@@ -35,6 +35,7 @@ export type CycleObservation = {
 
 export type CyclePlan = {
   planner_version?: string;
+  planner?: string;
   action_type?: string;
   protocol?: string;
   rationale?: string;

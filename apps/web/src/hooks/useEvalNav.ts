@@ -47,6 +47,6 @@ export function useEvalNav() {
   return {
     loading,
     sampleCount,
-    showEvalTab: !loading && (sampleCount ?? 0) > 0,
+    showEvalTab: false,
   };
 }

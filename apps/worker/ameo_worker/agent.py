@@ -14,21 +14,21 @@ from .state import update_status
 logger = logging.getLogger(__name__)
 
 
-async def run_cycle() -> Dict[str, Any]:
+async def run_cycle(demo_mode: str | None = None) -> Dict[str, Any]:
     cycle_id = f"cyc_{uuid.uuid4().hex[:8]}"
 
     set_cycle_sentry_context(cycle_id)
-    log_struct("cycle_start", cycle_id=cycle_id, correlation_id=cycle_id)
+    log_struct("cycle_start", cycle_id=cycle_id, correlation_id=cycle_id, demo_mode=demo_mode)
 
     EventStore().emit(
         cycle_id=cycle_id,
         event_type=EventType.CYCLE_STARTED,
-        data={"timestamp": datetime.utcnow().isoformat()},
+        data={"timestamp": datetime.utcnow().isoformat(), "demo_mode": demo_mode},
     )
 
     try:
         graph = build_graph()
-        result = await graph.ainvoke({"cycle_id": cycle_id})
+        result = await graph.ainvoke({"cycle_id": cycle_id, "demo_mode": demo_mode or ""})
         log_struct("cycle_end", cycle_id=cycle_id, correlation_id=cycle_id, ok=True)
         return {**result, "cycle_id": cycle_id}
     except Exception as exc:

@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
 import type { CycleDetail } from "../hooks/useCycles";
+import {
+  deriveCycleOutcome,
+  replayNodeEvidenceLabel,
+  replayNodeIsComplete,
+} from "../lib/cycleOutcome";
 import { shortHash } from "../lib/dashboardFormat";
 
 type ReplayNode = {
@@ -15,14 +20,21 @@ type CycleReplayCardProps = {
   cycleNumber: number;
 };
 
-function statusPillClass(status: string) {
+function statusPillClass(status: string, executionOk?: boolean) {
+  if (status === "failed" || executionOk === false) {
+    return "bg-red-100 border-red-500 text-red-600";
+  }
   if (status === "verified" || status === "executed") {
     return "bg-[#e2f0d9] border-[#3d7a5f] text-[#3d7a5f]";
   }
-  if (status === "failed") {
-    return "bg-red-100 border-red-500 text-red-600";
-  }
   return "bg-amber-50 border-amber-400 text-amber-800";
+}
+
+function statusPillLabel(status: string, executionOk?: boolean) {
+  if (executionOk === false) {
+    return "degraded";
+  }
+  return status;
 }
 
 function JsonBlock({ value }: { value: unknown }) {
@@ -36,6 +48,7 @@ function JsonBlock({ value }: { value: unknown }) {
 export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
   const [replayKey, setReplayKey] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const outcome = useMemo(() => deriveCycleOutcome(detail), [detail]);
 
   const nodes: ReplayNode[] = useMemo(
     () => [
@@ -50,45 +63,43 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
           : "Policy validation",
         payload: detail.policy_checks,
       },
-      { 
-        id: "execution", 
-        title: detail.summary.action_type === "treasury_ping"
-          ? "Execution · degraded path (no DEX liquidity)"
-          : (detail.plan as any)?.rationale_summary?.toLowerCase?.().includes("volatility") 
-            ? "Execution · Volatility Rebalance (FusionX V2)" 
-            : "Execution · FusionX V2 DEX", 
-        payload: detail.execution 
+      {
+        id: "execution",
+        title: outcome.policyBlocked
+          ? "Execution · skipped (policy blocked)"
+          : detail.summary.action_type === "treasury_ping"
+            ? "Execution · treasury_ping (degraded — thin testnet liquidity)"
+            : detail.execution?.ok === false
+              ? "Execution · failed (router revert)"
+              : (detail.plan as { rationale_summary?: string })?.rationale_summary
+                    ?.toLowerCase?.()
+                    .includes("volatility")
+                ? "Execution · Volatility Rebalance (FusionX V2)"
+                : "Execution · FusionX V2 DEX",
+        payload: detail.execution,
       },
-      { id: "tx", title: "Settled on Mantle Sepolia", payload: detail.tx_hash },
+      {
+        id: "tx",
+        title: outcome.hasTx ? "Settled on Mantle Sepolia" : "Settlement · no tx this cycle",
+        payload: detail.tx_hash,
+      },
       {
         id: "onchain",
-        title: `DecisionLogged · ERC-8004 identity #${import.meta.env.VITE_AGENT_TOKEN_ID ?? "0"}`,
+        title: detail.decision_log
+          ? `DecisionLogged · agent NFT #${import.meta.env.VITE_AGENT_TOKEN_ID ?? "0"}`
+          : "DecisionLogged · no on-chain match for this cycle",
         payload: detail.decision_log ?? { note: "No DecisionLogged match for this cycle" },
       },
-      {
-        id: "zerog",
-        title: detail.zero_g?.root_hash
-          ? "0G Storage receipt · anchored ✓"
-          : "0G Storage · pending (testnet gas may be required)",
-        payload: detail.zero_g ?? {
-          note: "0G anchor pending - Galileo testnet may need gas. Execution still verifiable via Mantle tx.",
-        },
-      },
     ],
-    [detail],
+    [detail, outcome],
   );
 
   const completedCount = nodes.filter((node) => {
-    if (node.id === "policy") {
-      return detail.policy_checks.length > 0;
-    }
-    if (node.id === "onchain") {
-      return Boolean(detail.decision_log);
-    }
-    if (node.id === "zerog") {
-      return Boolean(detail.zero_g);
-    }
-    return Boolean(node.payload) && JSON.stringify(node.payload) !== "{}";
+    const hasPayload =
+      node.id === "policy"
+        ? detail.policy_checks.length > 0
+        : Boolean(node.payload) && JSON.stringify(node.payload) !== "{}";
+    return replayNodeIsComplete(node.id, outcome, hasPayload);
   }).length;
 
   const [activeIndex, setActiveIndex] = useState(() =>
@@ -100,9 +111,7 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
       cycle_id: detail.summary.cycle_id,
       rationaleHash: detail.decision_log?.rationaleHash ?? null,
       txHash: detail.tx_hash?.hash ?? detail.summary.tx_hash ?? null,
-      zeroGRoot: detail.zero_g?.root_hash ?? detail.decision_log?.dataHash ?? null,
       mantleExplorerUrl: detail.tx_hash?.explorer_url ?? null,
-      indexerUrl: detail.zero_g?.indexer_url ?? null,
     };
     await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2));
   };
@@ -131,9 +140,9 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
               : detail.summary.action_type}{" "}
             ·{" "}
             <span
-              className={`inline-block border px-2 py-0.5 text-[10px] font-bold uppercase ${statusPillClass(detail.summary.status)}`}
+              className={`inline-block border px-2 py-0.5 text-[10px] font-bold uppercase ${statusPillClass(detail.summary.status, detail.execution?.ok)}`}
             >
-              {detail.summary.status}
+              {statusPillLabel(detail.summary.status, detail.execution?.ok)}
             </span>
           </p>
         </div>
@@ -175,15 +184,16 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
         <ol role="list" aria-label="Cycle replay steps" className="relative space-y-6">
           {nodes.map((node, index) => {
             const isOpen = expanded[node.id] ?? index === 0;
-            const isComplete =
+            const hasPayload =
               node.id === "policy"
-                ? detail.policy_checks.every((check) => check.passed)
-                : node.id === "onchain"
-                  ? Boolean(detail.decision_log)
-                  : node.id === "zerog"
-                    ? Boolean(detail.zero_g)
-                    : Boolean(node.payload) && JSON.stringify(node.payload) !== "{}";
-            const isActive = activeIndex === index;
+                ? detail.policy_checks.length > 0
+                : Boolean(node.payload) && JSON.stringify(node.payload) !== "{}";
+            const evidenceLabel = replayNodeEvidenceLabel(node.id, outcome, hasPayload);
+            const isComplete = replayNodeIsComplete(node.id, outcome, hasPayload);
+            const isFailed = Boolean(
+              evidenceLabel && ["FAILED", "NO TX", "NO MATCH"].includes(evidenceLabel),
+            );
+            const isActive = activeIndex === index && !isComplete && !isFailed;
 
             return (
               <motion.li
@@ -198,16 +208,20 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                 <button
                   type="button"
                   className={`absolute -left-[30px] top-1 z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink ${
-                    isComplete
-                      ? "bg-accent text-surface"
-                      : isActive
-                        ? "bg-sand text-ink shadow-[0_0_12px_rgba(200,107,74,0.35)]"
-                        : "bg-[#faf7f2] text-ink/30"
+                    isFailed
+                      ? "bg-red-100 text-red-700"
+                      : isComplete
+                        ? evidenceLabel === "DEGRADED"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-accent text-surface"
+                        : isActive
+                          ? "bg-sand text-ink shadow-[0_0_12px_rgba(200,107,74,0.35)]"
+                          : "bg-[#faf7f2] text-ink/30"
                   }`}
                   aria-label={`Step ${index + 1}: ${node.title}`}
                   onClick={() => scrubToNode(index)}
                 >
-                  {isComplete ? "✓" : index + 1}
+                  {isFailed ? "!" : isComplete ? "✓" : index + 1}
                 </button>
 
                 <div
@@ -236,14 +250,17 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                       id={`replay-node-${index}-evidence`}
                       className="shrink-0 font-mono text-[10px] font-extrabold uppercase"
                     >
-                      {isComplete ? (
-                        <span className="bg-[#3d7a5f] px-2 py-0.5 text-surface text-[9px]">
-                          {index === 0 && 'OBSERVED'}
-                          {index === 1 && 'GENERATED'}
-                          {index === 2 && 'EVALUATED'}
-                          {index === 3 && 'SETTLED'}
-                          {index === 4 && 'PROVEN'}
-                          {index > 4 && 'VERIFIED'}
+                      {evidenceLabel ? (
+                        <span
+                          className={`px-2 py-0.5 text-[9px] ${
+                            isFailed
+                              ? "bg-red-50 text-red-700 border border-red-400"
+                              : evidenceLabel === "DEGRADED"
+                                ? "bg-amber-50 text-amber-800 border border-amber-400"
+                                : "bg-[#3d7a5f] text-surface"
+                          }`}
+                        >
+                          {evidenceLabel}
                         </span>
                       ) : isActive ? (
                         <span className="animate-pulse bg-accent px-2 py-0.5 text-surface">● ACTIVE</span>
@@ -264,9 +281,9 @@ export function CycleReplayCard({ detail, cycleNumber }: CycleReplayCardProps) {
                       ⚠️ POLICY REJECTION(S) DETECTED: Plan was blocked or adjusted by guardrails. Safety layer active.
                     </div>
                   )}
-                  {node.id === "zerog" && !detail.zero_g?.root_hash && (
+                  {node.id === "execution" && detail.execution?.ok === false && !outcome.policyBlocked && (
                     <div className="mb-2 p-2 bg-amber-50 border border-amber-400 text-amber-800 text-[10px] font-mono">
-                      0G anchor pending (testnet). Proof trail still verifiable via on-chain DecisionLogged + Mantle tx.
+                      Execution leg failed on testnet (thin liquidity). Policy still passed; no settlement tx for this swap.
                     </div>
                   )}
 

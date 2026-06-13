@@ -26,9 +26,7 @@ function buildVerificationBundle(detail: NonNullable<ReturnType<typeof useCycle>
     cycle_id: detail.summary.cycle_id,
     rationaleHash: detail.decision_log?.rationaleHash ?? null,
     txHash: detail.tx_hash?.hash ?? detail.summary.tx_hash ?? null,
-    zeroGRoot: detail.zero_g?.root_hash ?? detail.decision_log?.dataHash ?? null,
     mantleExplorerUrl: detail.tx_hash?.explorer_url ?? null,
-    indexerUrl: detail.zero_g?.indexer_url ?? null,
   };
 }
 
@@ -40,7 +38,12 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
 
   const verifyCycle = useMemo(() => {
     const cycles = listData?.cycles ?? [];
-    return cycles.find((cycle) => cycle.tx_hash) ?? cycles[0] ?? null;
+    return (
+      cycles.find((c) => c.action_type === "policy_blocked" && c.tx_hash) ??
+      cycles.find((c) => c.tx_hash) ??
+      cycles[0] ??
+      null
+    );
   }, [listData?.cycles]);
 
   const { data: detail, isLoading: detailLoading } = useCycle(verifyCycle?.cycle_id);
@@ -110,7 +113,7 @@ export function VerifyIn60sCard({ variant = "landing" }: VerifyIn60sCardProps) {
             1
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-ink">Verified ERC-8004 contract</p>
+            <p className="text-sm font-semibold text-ink">AMEO decision ledger (custom contract)</p>
             {loading ? (
               <Skeleton className="mt-2 h-4 w-48" />
             ) : identityUrl ? (

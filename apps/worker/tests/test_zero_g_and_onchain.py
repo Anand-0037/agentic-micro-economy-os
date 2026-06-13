@@ -82,6 +82,8 @@ def test_anchor_failure_graceful(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_log_node_schedules_background_finalize() -> None:
+    import asyncio
+
     plan = ActionPlan(
         action_type="swap",
         idempotency_key="k1",
@@ -98,6 +100,7 @@ def test_log_node_schedules_background_finalize() -> None:
         "guardrail_ok": True,
         "violations": [],
         "byreal_skill_result": None,
+        "demo_mode": "",
     }
 
     with patch("ameo_worker.graph._ctx") as ctx_mock:
@@ -107,7 +110,7 @@ def test_log_node_schedules_background_finalize() -> None:
             with patch("ameo_worker.graph.update_status"):
                 with patch("ameo_worker.graph.EventStore") as event_store_cls:
                     event_store_cls.return_value.emit = MagicMock()
-                    result = log(state)
+                    result = asyncio.run(log(state))
 
     assert result["log"]["zero_g"]["status"] == "pending"
     loop_mock.return_value.create_task.assert_called_once()

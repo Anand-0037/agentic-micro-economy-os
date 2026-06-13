@@ -7,6 +7,7 @@ from typing import Any, Dict
 from .context import get_worker_context
 from .models import ActionPlan, ExecutionResult, ObservationSnapshot
 from .services.event_store import EventStore, EventType
+from .services.cycle_store import clear_decision_log_cache
 from .services.zero_g_storage import ZeroGAnchorResult
 from .logutil import log_struct
 
@@ -92,11 +93,23 @@ async def finalize_cycle_async(
             metadata_uri,
             data_hash,
         )
+        onchain_tx = log_result.get("tx_hash") if isinstance(log_result, dict) else None
         log_struct(
             "onchain_decision_logged",
             cycle_id=cycle_id,
-            tx_hash=log_result.get("tx_hash") if isinstance(log_result, dict) else None,
+            tx_hash=onchain_tx,
             action_type=action_type,
         )
+        if onchain_tx:
+            EventStore().emit(
+                cycle_id=cycle_id,
+                event_type=EventType.ONCHAIN_DECISION_LOGGED,
+                data={
+                    "tx_hash": onchain_tx,
+                    "action_type": action_type,
+                    "rationale_uri": metadata_uri,
+                },
+            )
+            clear_decision_log_cache()
     except Exception as exc:
         logger.warning("onchain_log_failed cycle=%s error=%s", cycle_id, exc)

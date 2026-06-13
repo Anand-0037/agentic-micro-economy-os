@@ -63,13 +63,13 @@ class Settings(BaseSettings):
     dex_slippage_bps: int = Field(100, alias="DEX_SLIPPAGE_BPS")
     dex_swap_deadline_sec: int = Field(300, alias="DEX_SWAP_DEADLINE_SEC")
 
-    llm_provider: str = Field("groq", alias="LLM_PROVIDER")
+    llm_provider: str = Field("z_ai", alias="LLM_PROVIDER")
     llm_provider_chain: str = Field(
-        "groq,z_ai,gemini,local_rules", alias="LLM_PROVIDER_CHAIN"
+        "z_ai,groq,gemini,local_rules", alias="LLM_PROVIDER_CHAIN"
     )
     z_ai_api_key: str = Field("", alias="Z_AI_API_KEY")
     z_ai_base_url: str = Field("https://api.z.ai/api/paas/v4", alias="Z_AI_BASE_URL")
-    z_ai_model: str = Field("glm-4-plus", alias="Z_AI_MODEL")
+    z_ai_model: str = Field("glm-4.6", alias="Z_AI_MODEL")
     groq_api_key: str = Field("", alias="GROQ_API_KEY")
     groq_base_url: str = Field("https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
     groq_model: str = Field("llama-3.3-70b-versatile", alias="GROQ_MODEL")

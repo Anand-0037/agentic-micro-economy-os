@@ -1,5 +1,6 @@
 import type { CycleData } from "../components/CognitionTimeline";
 import type { CycleDetail } from "../hooks/useCycles";
+import { cognitionStepState, deriveCycleOutcome, resolvePlannerLabel } from "./cycleOutcome";
 import { executionTargetLabel, runtimeConfig } from "./runtimeConfig";
 
 type AmeoConfigLike = {
@@ -15,11 +16,15 @@ export function mapCycleDetailToCycleData(
     treasuryEoa: string;
     agentIdentityAddress: string;
     ameoConfig?: Partial<AmeoConfigLike>;
+    activeLlmProvider?: string | null;
   },
 ): CycleData {
   const { plan, policy_checks, observation, execution, tx_hash, summary, decision_log, zero_g } =
     detail;
+  const outcome = deriveCycleOutcome(detail);
   const anyReject = policy_checks.some((check) => !check.passed);
+  const executionOk = execution?.ok === true;
+  const tx = tx_hash?.hash ?? summary.tx_hash;
 
   const mappedObservation =
     observation && typeof observation === "object"
@@ -31,16 +36,19 @@ export function mapCycleDetailToCycleData(
         }
       : undefined;
 
+  const plannerLabel = resolvePlannerLabel(detail, options.activeLlmProvider);
+  const zeroGHash = "";
+
   const reasoning =
     plan.rationale || plan.rationale_summary
       ? {
-          llmProvider: runtimeConfig.llmProviderLabel,
-          model: runtimeConfig.llmModel,
+          llmProvider: plannerLabel,
+          model: plannerLabel.includes("local_rules") ? "rules@mantis-v1" : runtimeConfig.llmModel,
           rationaleHash: String(decision_log?.rationaleHash ?? summary.rationale_hash ?? ""),
           thoughtProcess: String(
             plan.rationale_summary ?? plan.rationale ?? "Cycle executed under policy guardrails.",
           ),
-          zeroGHash: String(zero_g?.root_hash ?? decision_log?.dataHash ?? ""),
+          zeroGHash,
         }
       : undefined;
 
@@ -59,36 +67,57 @@ export function mapCycleDetailToCycleData(
     planApproved: !anyReject,
   };
 
+  const executionDescription =
+    outcome.policyBlocked
+      ? "Policy blocked — no DEX execution attempted"
+      : outcome.isTreasuryPing
+        ? "treasury_ping — degraded path (thin testnet liquidity)"
+        : executionOk
+          ? String(plan.rationale_summary ?? `${runtimeConfig.executionAdapterLabel}: ${summary.action_type || "swap"}`)
+          : String(execution?.error ?? "Execution failed — no settlement tx");
+
   const mappedExecution = execution
     ? {
         sender: execution.sender ?? options.treasuryEoa ?? options.agentIdentityAddress,
         targetContract: execution.target_contract ?? executionTargetLabel(),
-        actionDescription:
-          plan.rationale_summary?.toString() ??
-          (summary.action_type === "treasury_ping"
-            ? "treasury_ping (testnet fallback - no DEX liquidity)"
-            : `${runtimeConfig.executionAdapterLabel}: ${summary.action_type || "swap"}`),
+        actionDescription: executionDescription,
         signingKeyType: runtimeConfig.signingMethod,
         gasEstimateGwei: 28,
+        ok: executionOk,
       }
     : undefined;
 
-  const tx = tx_hash?.hash ?? summary.tx_hash;
   const settlementBlock = Number(
-    tx_hash?.block_number ??
-      execution.calldata?.block_number ??
-      observation.block_number ??
-      0,
+    tx_hash?.block_number ?? execution.calldata?.block_number ?? observation.block_number ?? 0,
   );
 
-  const settlement = tx
-    ? {
-        txHash: tx,
-        blockNumber: settlementBlock,
-        verifiedOnChain: true,
-        explorerUrl: `${options.explorerBase}/tx/${tx}`,
-      }
-    : undefined;
+  const settlement =
+    tx && (executionOk || outcome.policyBlocked)
+      ? {
+          txHash: tx,
+          blockNumber: settlementBlock,
+          verifiedOnChain: executionOk && Boolean(tx),
+          explorerUrl: `${options.explorerBase}/tx/${tx}`,
+        }
+      : undefined;
+
+  const maxCompletedStep = [0, 1, 2, 3, 4].reduce((max, step) => {
+    const hasData =
+      step === 0
+        ? Boolean(mappedObservation)
+        : step === 1
+          ? Boolean(reasoning)
+          : step === 2
+            ? Boolean(policy)
+            : step === 3
+              ? Boolean(mappedExecution)
+              : Boolean(settlement);
+    const state = cognitionStepState(step, outcome, hasData);
+    if (state === "complete" || state === "degraded" || state === "failed") {
+      return Math.max(max, step);
+    }
+    return max;
+  }, 0);
 
   return {
     observation: mappedObservation,
@@ -97,5 +126,7 @@ export function mapCycleDetailToCycleData(
     execution: mappedExecution,
     settlement,
     plan,
+    outcome,
+    maxCompletedStep,
   };
 }

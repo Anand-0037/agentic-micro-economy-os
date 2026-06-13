@@ -228,7 +228,13 @@ async def get_agent(token_id: int) -> dict[str, Any]:
             try:
                 token_uri = contract.functions.tokenURI(token_id).call()
             except Exception:
-                token_uri = f"https://docs.ameo.agiwithai.com/agents/{token_id}"
+                token_uri = ""
+            if not token_uri or token_uri.startswith("https://docs.ameo"):
+                base = _explorer_base(settings)
+                token_uri = (
+                    f"{base}/token/{settings.agent_identity_address}"
+                    f"?a={settings.agent_token_id}"
+                )
         except Exception:
             pass
 
@@ -294,10 +300,13 @@ async def create_decision(body: DecisionInput, request: Request) -> dict[str, An
 
 
 @router.post("/cycles/run")
-async def run_cycle_v1(request: Request) -> dict[str, Any]:
+async def run_cycle_v1(
+    request: Request,
+    demo: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
     """Run one full observe → plan → policy → execute cycle."""
     try:
-        result = await run_cycle()
+        result = await run_cycle(demo_mode=demo)
     except Exception as exc:
         return _error_response(500, "cycle_failed", str(exc))
 
@@ -306,7 +315,9 @@ async def run_cycle_v1(request: Request) -> dict[str, Any]:
     return {
         "cycleId": cycle_id,
         "status": "completed",
-        "byrealSkillResult": result.get("byreal_skill_result"),
+        "fusionxQuoteResult": result.get("byreal_skill_result"),
+        "guardrailOk": result.get("guardrail_ok"),
+        "violations": result.get("violations", []),
     }
 
 

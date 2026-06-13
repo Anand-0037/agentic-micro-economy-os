@@ -1,14 +1,12 @@
 import { motion } from "framer-motion";
 
 import type { VerifiableLog } from "../hooks/useAmeo";
-import { zeroGReceiptUrl } from "../lib/zeroG";
 
 type OnChainPulseProps = {
   logs: VerifiableLog[];
   loading: boolean;
   error?: string | null;
   explorerBase: string;
-  zeroGExplorerBase: string;
   onRefresh: () => void;
   onTriggerCycle: () => Promise<void>;
 };
@@ -18,7 +16,6 @@ export function OnChainPulse({
   loading,
   error,
   explorerBase,
-  zeroGExplorerBase,
   onRefresh,
   onTriggerCycle,
 }: OnChainPulseProps) {
@@ -112,9 +109,6 @@ export function OnChainPulse({
                       {log.metadataUri || "No rationale metadata"}
                     </p>
                     <p className="mt-2 break-all">Hash {log.rationaleHash}</p>
-                    {log.dataHash && (
-                      <p className="mt-2 break-all">0G {log.dataHash}</p>
-                    )}
                   </div>
                 </div>
                 <div className="space-y-3 md:text-right">
@@ -135,16 +129,6 @@ export function OnChainPulse({
                   target="_blank"
                 >
                   View Transaction
-                </a>
-              )}
-              {log.dataHash && (
-                <a
-                  className="neo-button mt-3 inline-flex h-10 items-center justify-center bg-sand px-4 text-[0.65rem] font-semibold uppercase tracking-[0.18em] focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
-                  href={zeroGReceiptUrl(zeroGExplorerBase, log.dataHash)}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Cognitive Receipt
                 </a>
               )}
             </motion.div>

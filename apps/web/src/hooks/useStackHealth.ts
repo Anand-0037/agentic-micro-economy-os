@@ -5,7 +5,6 @@ import { apiGet } from "../lib/apiClient";
 export type StackHealth = {
   worker: boolean | null;
   mantleRpc: boolean | null;
-  zeroG: boolean | null;
 };
 
 async function pingWorker(baseUrl: string): Promise<boolean> {
@@ -26,34 +25,16 @@ async function pingMantleRpc(workerUrl: string): Promise<boolean> {
   }
 }
 
-async function pingZeroG(workerUrl: string): Promise<boolean | null> {
-  try {
-    const json = await apiGet<{ configured?: boolean; ok?: boolean }>(
-      workerUrl,
-      "/api/zero-g-probe",
-      12000,
-    );
-    if (json.configured === false) return null;
-    return Boolean(json.ok);
-  } catch {
-    return false;
-  }
-}
-
 export function useStackHealth(workerUrl: string, enabled: boolean) {
   const [health, setHealth] = useState<StackHealth>({
     worker: null,
     mantleRpc: null,
-    zeroG: null,
   });
 
   const refresh = useCallback(async () => {
     const worker = await pingWorker(workerUrl);
-    const [mantleRpc, zeroG] = await Promise.all([
-      worker ? pingMantleRpc(workerUrl) : Promise.resolve(false),
-      worker ? pingZeroG(workerUrl) : Promise.resolve(null),
-    ]);
-    setHealth({ worker, mantleRpc, zeroG });
+    const mantleRpc = worker ? await pingMantleRpc(workerUrl) : false;
+    setHealth({ worker, mantleRpc });
   }, [workerUrl]);
 
   useEffect(() => {

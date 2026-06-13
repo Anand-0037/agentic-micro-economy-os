@@ -161,24 +161,67 @@ def _derive_status(events: List[AgentEvent]) -> str:
 
 
 @lru_cache(maxsize=8)
-def _decision_log_index() -> Dict[str, Dict[str, Any]]:
+def _decision_log_index() -> tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """Index DecisionLogged events by tx hash and by ameo://cycle/{id} metadata URI."""
     settings = get_settings()
-    index: Dict[str, Dict[str, Any]] = {}
+    by_tx: Dict[str, Dict[str, Any]] = {}
+    by_cycle: Dict[str, Dict[str, Any]] = {}
     try:
         for entry in fetch_decision_logs(settings):
             tx_hash = _normalize_tx_hash(entry.get("txHash"))
             if tx_hash:
-                index[tx_hash] = entry
+                by_tx[tx_hash] = entry
+            metadata = str(entry.get("metadataUri") or "")
+            if metadata.startswith("ameo://cycle/"):
+                cycle_key = metadata.rsplit("/", 1)[-1]
+                if cycle_key:
+                    by_cycle[cycle_key] = entry
     except Exception:
         pass
-    return index
+    return by_tx, by_cycle
+
+
+def clear_decision_log_cache() -> None:
+    _decision_log_index.cache_clear()
+
+
+def _match_decision_log(
+    cycle_id: str,
+    events: List[AgentEvent],
+    by_tx: Dict[str, Dict[str, Any]],
+    by_cycle: Dict[str, Dict[str, Any]],
+) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Resolve on-chain proof for a cycle: onchain log tx > execution tx > cycle metadata."""
+    onchain_event = _last_event(events, EventType.ONCHAIN_DECISION_LOGGED)
+    executed = _last_event(events, EventType.ACTION_EXECUTED)
+    failed = _last_event(events, EventType.ACTION_FAILED)
+
+    candidate_txs: List[str] = []
+    if onchain_event and onchain_event.data.get("tx_hash"):
+        candidate_txs.append(str(onchain_event.data["tx_hash"]))
+    if executed and executed.data.get("tx_hash"):
+        candidate_txs.append(str(executed.data["tx_hash"]))
+    if failed and failed.data.get("tx_hash"):
+        candidate_txs.append(str(failed.data["tx_hash"]))
+
+    for raw_tx in candidate_txs:
+        matched = by_tx.get(_normalize_tx_hash(raw_tx))
+        if matched:
+            return matched, raw_tx
+
+    matched = by_cycle.get(cycle_id)
+    if matched:
+        return matched, str(matched.get("txHash") or "") or None
+
+    return None, candidate_txs[0] if candidate_txs else None
 
 
 def _build_summary(
     cycle_id: str,
     events: List[AgentEvent],
     settings: Settings,
-    decision_index: Dict[str, Dict[str, Any]],
+    decision_by_tx: Dict[str, Dict[str, Any]],
+    decision_by_cycle: Dict[str, Dict[str, Any]],
 ) -> CycleSummary:
     started = _first_event(events, EventType.CYCLE_STARTED)
     completed = _last_event(events, EventType.CYCLE_COMPLETED)
@@ -186,23 +229,25 @@ def _build_summary(
     executed = _last_event(events, EventType.ACTION_EXECUTED)
     failed = _last_event(events, EventType.ACTION_FAILED)
 
-    tx_hash: Optional[str] = None
-    if executed and executed.data.get("tx_hash"):
-        tx_hash = str(executed.data["tx_hash"])
-    elif failed and failed.data.get("tx_hash"):
-        tx_hash = str(failed.data["tx_hash"])
+    decision, tx_hash = _match_decision_log(
+        cycle_id, events, decision_by_tx, decision_by_cycle
+    )
 
     pnl_1e18: Optional[str] = None
     has_zero_g = False
-    if tx_hash:
-        decision = decision_index.get(_normalize_tx_hash(tx_hash))
-        if decision:
-            pnl_1e18 = decision.get("pnl1e18")
-            has_zero_g = bool(decision.get("dataHash"))
+    if decision:
+        pnl_1e18 = decision.get("pnl1e18")
+        has_zero_g = bool(decision.get("dataHash"))
 
     action_type = "unknown"
     if plan:
         action_type = str(plan.data.get("action_type") or "unknown")
+
+    guardrail_event = _first_event(events, EventType.GUARDRAIL_EVALUATED)
+    violations = list(guardrail_event.data.get("violations", [])) if guardrail_event else []
+    has_reject = len(violations) > 0
+    if has_reject or (guardrail_event and not guardrail_event.data.get("ok", True)):
+        action_type = "policy_blocked"
 
     execution_event = executed or failed
     if execution_event and execution_event.data.get("command") == "treasury_ping":
@@ -213,10 +258,6 @@ def _build_summary(
     if plan:
         rationale_summary = str(plan.data.get("rationale_summary") or plan.data.get("rationale") or "").lower()
     has_vol = "volatility" in rationale_summary or "vol response" in rationale_summary
-
-    guardrail_event = _first_event(events, EventType.GUARDRAIL_EVALUATED)
-    violations = list(guardrail_event.data.get("violations", [])) if guardrail_event else []
-    has_reject = len(violations) > 0
 
     return CycleSummary(
         cycle_id=cycle_id,
@@ -236,9 +277,12 @@ def _build_detail(
     cycle_id: str,
     events: List[AgentEvent],
     settings: Settings,
-    decision_index: Dict[str, Dict[str, Any]],
+    decision_by_tx: Dict[str, Dict[str, Any]],
+    decision_by_cycle: Dict[str, Dict[str, Any]],
 ) -> CycleDetail:
-    summary = _build_summary(cycle_id, events, settings, decision_index)
+    summary = _build_summary(
+        cycle_id, events, settings, decision_by_tx, decision_by_cycle
+    )
     observation_event = _first_event(events, EventType.OBSERVATION_COMPLETED)
     plan_event = _first_event(events, EventType.PLAN_GENERATED)
     guardrail_event = _first_event(events, EventType.GUARDRAIL_EVALUATED)
@@ -279,9 +323,11 @@ def _build_detail(
     if plan_event:
         plan = {
             "planner_version": plan_event.data.get("planner"),
+            "planner": plan_event.data.get("planner"),
             "action_type": plan_event.data.get("action_type"),
             "protocol": plan_event.data.get("protocol"),
             "rationale": plan_event.data.get("rationale"),
+            "rationale_summary": plan_event.data.get("rationale_summary"),
             "correlation_id": plan_event.correlation_id,
             "plan": plan_event.data,
         }
@@ -303,23 +349,25 @@ def _build_detail(
 
     decision_log: Optional[Dict[str, Any]] = None
     zero_g: Optional[Dict[str, Any]] = None
-    if tx_hash:
-        matched = decision_index.get(_normalize_tx_hash(tx_hash))
-        if matched:
-            decision_log = {
-                **matched,
-                "verify_url": _explorer_tx_url(settings, tx_hash),
-                "identity_address": settings.agent_identity_address,
+    matched, proof_tx = _match_decision_log(
+        cycle_id, events, decision_by_tx, decision_by_cycle
+    )
+    tx_hash = proof_tx or summary.tx_hash
+    if matched and tx_hash:
+        decision_log = {
+            **matched,
+            "verify_url": _explorer_tx_url(settings, tx_hash),
+            "identity_address": settings.agent_identity_address,
+        }
+        data_hash = matched.get("dataHash") or ""
+        if data_hash:
+            indexer = settings.zero_g_indexer_url or ""
+            zero_g = {
+                "root_hash": data_hash,
+                "indexer_url": indexer,
+                "content_type": "application/json",
+                "size_bytes": None,
             }
-            data_hash = matched.get("dataHash") or ""
-            if data_hash:
-                indexer = settings.zero_g_indexer_url or ""
-                zero_g = {
-                    "root_hash": data_hash,
-                    "indexer_url": indexer,
-                    "content_type": "application/json",
-                    "size_bytes": None,
-                }
 
     policy_snapshot = serialize_default_policy(settings)
 
@@ -342,7 +390,7 @@ def _build_detail(
 
 
 def _byreal_skill_result_for_cycle(events: List[AgentEvent]) -> Any:
-    matched = [event for event in events if event.event_type == EventType.BYREAL_SKILL_INVOKED]
+    matched = [event for event in events if event.event_type == EventType.FUSIONX_QUOTE_FETCHED]
     if not matched:
         return None
     return matched[-1].data.get("byreal_skill_result")
@@ -360,10 +408,10 @@ def list_cycles(limit: int = 50, offset: int = 0) -> tuple[List[CycleSummary], i
     settings = get_settings()
     log_dir = _events_dir(settings)
     grouped = _group_by_cycle(_load_all_events(log_dir))
-    decision_index = _decision_log_index()
+    decision_by_tx, decision_by_cycle = _decision_log_index()
 
     summaries = [
-        _build_summary(cycle_id, events, settings, decision_index)
+        _build_summary(cycle_id, events, settings, decision_by_tx, decision_by_cycle)
         for cycle_id, events in grouped.items()
     ]
     summaries.sort(key=lambda item: item.started_at, reverse=True)
@@ -379,9 +427,9 @@ def get_cycle(cycle_id: str) -> Optional[CycleDetail]:
     events = grouped.get(cycle_id)
     if not events:
         return None
-    decision_index = _decision_log_index()
-    return _build_detail(cycle_id, events, settings, decision_index)
+    decision_by_tx, decision_by_cycle = _decision_log_index()
+    return _build_detail(cycle_id, events, settings, decision_by_tx, decision_by_cycle)
 
 
 def clear_cycle_cache() -> None:
-    _decision_log_index.cache_clear()
+    clear_decision_log_cache()

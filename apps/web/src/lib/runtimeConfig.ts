@@ -20,7 +20,7 @@ export const runtimeConfig = {
   fusionxRouter:
     env.VITE_FUSIONX_V2_ROUTER ?? "0x45e6f621c5ED8616cCFB9bBaeBAcF9638aBB0033",
   llmProviderLabel: env.VITE_LLM_PROVIDER_LABEL ?? "z.ai",
-  llmModel: env.VITE_Z_AI_MODEL ?? "glm-4-plus",
+  llmModel: env.VITE_Z_AI_MODEL ?? "glm-4.6",
   groqModel: env.VITE_GROQ_MODEL ?? "llama-3.3-70b-versatile",
   geminiModel: env.VITE_GEMINI_MODEL ?? "gemini-2.5-pro",
   volatilityThresholdPct: Number(env.VITE_VOLATILITY_THRESHOLD_PCT ?? "0.03"),

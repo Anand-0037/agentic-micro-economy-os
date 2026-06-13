@@ -36,3 +36,4 @@ packages/contracts/standard-input.json
 # binaries
 bin/0g-storage-client
 packages/*/dist/
+digest.txt 

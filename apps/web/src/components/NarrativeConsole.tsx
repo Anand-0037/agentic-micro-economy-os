@@ -5,33 +5,66 @@ import { useEventTail, type EventLine } from "../hooks/useEventTail";
 import { useSchedulerStatus } from "../hooks/useSchedulerStatus";
 import { runtimeConfig } from "../lib/runtimeConfig";
 
-function formatEventLine(event: EventLine): string {
+function humanizeEventDetail(event: EventLine): string {
+  const data = event.data ?? {};
+  const eventType = event.event_type ?? event.type ?? "event";
+
+  if (eventType === "action_failed") {
+    const command = String(data.command ?? "action");
+    const error = String(data.error ?? "execution failed");
+    return `${command} failed — ${error.slice(0, 120)}`;
+  }
+  if (eventType === "llm_provider_failed") {
+    return `LLM provider ${String(data.provider ?? "unknown")} unavailable`;
+  }
+  if (eventType === "llm_provider_succeeded") {
+    return `Planner active: ${String(data.provider ?? "unknown")}`;
+  }
+  if (eventType === "action_executed") {
+    return `${String(data.command ?? "action")} ${data.ok === false ? "failed" : "succeeded"}`;
+  }
+  if (eventType === "cycle_completed") {
+    return data.ok === false ? "Cycle finished with execution failure" : "Cycle completed";
+  }
+  if (eventType === "guardrail_evaluated") {
+    const violations = Array.isArray(data.violations) ? data.violations : [];
+    return violations.length
+      ? `Policy blocked: ${violations.join(", ")}`
+      : "All guardrails passed";
+  }
+  if (eventType === "fusionx_quote_fetched" || eventType === "dex_quote_fetched") {
+    return "FusionX quote fetched";
+  }
+  if (event.msg) {
+    return event.msg;
+  }
+  return eventType.replaceAll("_", " ");
+}
+
+function formatEventLine(event: EventLine, summaryMode: boolean): string {
   if (event.type === "idle") {
     return "[INFO] Worker idle — waiting for next cycle.";
   }
 
-  const payload = event.data ? JSON.stringify(event.data) : "";
-  const isDexQuote =
-    payload.includes("dex_quote_fetched") ||
-    payload.includes("quote_fetched") ||
-    (event.msg ?? "").includes("dex_quote_fetched");
-
   const level =
     event.event_type === "action_failed" || event.event_type === "llm_provider_failed"
-      ? "ERROR"
+      ? "WARN"
       : event.event_type === "cycle_completed" ||
           event.event_type === "action_executed" ||
           event.event_type === "llm_provider_succeeded"
-        ? "SUCCESS"
-        : isDexQuote
-        ? "TELEMETRY"
+        ? event.data?.ok === false
+          ? "WARN"
+          : "OK"
         : "INFO";
 
   const cycle = event.cycle_id ? ` cycle=${event.cycle_id}` : "";
   const kind = event.event_type ?? event.type ?? "event";
-  const detail =
-    event.msg ??
-    (event.data && Object.keys(event.data).length > 0 ? payload : kind);
+  const detail = summaryMode
+    ? humanizeEventDetail(event)
+    : event.msg ??
+      (event.data && Object.keys(event.data).length > 0
+        ? JSON.stringify(event.data)
+        : kind);
 
   return `[${level}] ${kind}${cycle} — ${detail}`;
 }
@@ -39,9 +72,9 @@ function formatEventLine(event: EventLine): string {
 function renderLogLine(line: string, index: number) {
   let textColor = "text-cream/90";
 
-  if (line.includes("[SUCCESS]") || line.includes("[OK]") || line.includes("[ARCHIVE]")) {
+  if (line.includes("[OK]") || line.includes("[SUCCESS]") || line.includes("[ARCHIVE]")) {
     textColor = "text-green-400 font-semibold";
-  } else if (line.includes("[WARN]")) {
+  } else if (line.includes("[WARN]") || line.includes("[TELEMETRY]")) {
     textColor = "text-[#f59e0b] font-semibold";
   } else if (line.includes("[ERROR]")) {
     textColor = "text-red-400 font-semibold";
@@ -60,7 +93,12 @@ function renderLogLine(line: string, index: number) {
   );
 }
 
-export function NarrativeConsole() {
+type NarrativeConsoleProps = {
+  /** Judge-facing dashboard: human-readable lines, no raw JSON payloads. */
+  summaryMode?: boolean;
+};
+
+export function NarrativeConsole({ summaryMode = false }: NarrativeConsoleProps) {
   const { workerUrl } = useAmeoUi();
   const { lines, idle } = useEventTail(workerUrl);
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -69,7 +107,7 @@ export function NarrativeConsole() {
 
   const displayedLines =
     lines.length > 0
-      ? lines.map(formatEventLine)
+      ? lines.map((line) => formatEventLine(line, summaryMode))
       : idle
         ? ["[INFO] Worker idle — waiting for next cycle."]
         : ["[INFO] Connecting to worker event stream…"];
@@ -98,7 +136,7 @@ export function NarrativeConsole() {
             <span className="h-2.5 w-2.5 rounded-full border border-ink/40 bg-green-500" />
           </div>
           <span className="ml-2 font-mono text-[10px] font-bold uppercase tracking-widest text-muted">
-            worker telemetry · SSE tail
+            {summaryMode ? "cycle timeline (human-readable)" : "worker telemetry · SSE tail"}
           </span>
         </div>
         <div className="flex items-center gap-2">

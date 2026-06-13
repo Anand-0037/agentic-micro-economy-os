@@ -381,7 +381,13 @@ class MantleDexAdapter:
                     amount_in_wei, min_out, path, recipient, deadline
                 ).build_transaction(self._base_tx(recipient))
 
-            return self._send_transaction(tx, command="swap")
+            result = self._send_transaction(tx, command="swap")
+            if not result.ok:
+                return self._treasury_ping(
+                    self._to_wei(max(amount_in, 0.000001), 18),
+                    reason="swap_reverted",
+                )
+            return result
         except Exception as exc:
             return self._treasury_ping(
                 self._to_wei(max(amount_in, 0.000001), 18),
@@ -615,7 +621,12 @@ class MantleDexAdapter:
                 self._base_tx(signer, value=amount_wei)
             )
             result = self._send_transaction(tx, command="wrap_mnt")
-            if result.ok and isinstance(result.raw_output, dict):
+            if not result.ok:
+                return self._treasury_ping(
+                    max(amount_wei, 1),
+                    reason="wrap_mnt_reverted",
+                )
+            if isinstance(result.raw_output, dict):
                 result.raw_output["protocol"] = "wmnt_deposit"
             return result
         except Exception as exc:
@@ -805,7 +816,7 @@ class MantleDexAdapter:
             target = tx.get("to", "")
             agent_id = self._settings.agent_token_id
             logger.info(
-                "[INFO] byreal_quote_fetched skill=mantle.swap.v1 agent=%s target=%s action=%s",
+                "[INFO] fusionx_quote_fetched skill=mantle.swap.v1 agent=%s target=%s action=%s",
                 agent_id,
                 target,
                 command,

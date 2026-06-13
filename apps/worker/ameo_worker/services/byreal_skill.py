@@ -50,7 +50,7 @@ class ByrealSkillError(RuntimeError):
 
 def _emit_invocation_log(skill: str, exit_code: int, latency_ms: int) -> None:
     logger.info(
-        "byreal_quote_fetched skill=%s exit=%s latency_ms=%s dry_run=true",
+        "fusionx_quote_fetched skill=%s exit=%s latency_ms=%s dry_run=true",
         skill,
         exit_code,
         latency_ms,

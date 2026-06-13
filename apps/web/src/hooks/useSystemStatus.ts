@@ -12,7 +12,6 @@ export type DevDiagnostics = {
   llmOk: boolean | null;
   llmError: string | null;
   mantleRpc: boolean | null;
-  zeroG: boolean | null;
 };
 
 export type SystemStatus = {
@@ -75,7 +74,6 @@ export function useSystemStatus(): SystemStatus {
       llmOk,
       llmError,
       mantleRpc: stackHealth.mantleRpc,
-      zeroG: stackHealth.zeroG,
     };
 
     let critical: SystemStatus["critical"] = null;
@@ -107,6 +105,5 @@ export function useSystemStatus(): SystemStatus {
     llmOk,
     llmError,
     stackHealth.mantleRpc,
-    stackHealth.zeroG,
   ]);
 }
